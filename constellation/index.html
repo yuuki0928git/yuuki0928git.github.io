@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#070b14">
+  <meta name="description" content="言葉を入れると、あなただけの星座ができる。保存も共有もできる小さなWebアプリ。">
+  <title>ことば星座</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #070b14;
+      --panel: #0f1626;
+      --ink: #eef0e8;
+      --muted: #8d98a8;
+      --sage: #a8b8a2;
+      --sand: #e7dcc5;
+      --line: #1f2a40;
+      --serif: Georgia, "Hiragino Mincho ProN", "Noto Serif JP", serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(120% 80% at 50% 0%, #101a30 0%, var(--bg) 60%);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+      line-height: 1.7;
+      -webkit-text-size-adjust: 100%;
+    }
+    .wrap { width: min(100% - 32px, 520px); margin-inline: auto; padding: 22px 0 40px; }
+    header { display: flex; align-items: baseline; justify-content: space-between; }
+    h1 { margin: 0; font-family: var(--serif); font-size: 20px; letter-spacing: .14em; font-weight: 400; }
+    .sub { font-size: 12px; color: var(--muted); letter-spacing: .08em; }
+    .lead { margin: 14px 0 16px; font-size: 14px; color: var(--muted); }
+
+    form { display: flex; gap: 8px; }
+    input[type=text] {
+      flex: 1; min-width: 0; height: 48px; padding: 0 14px;
+      background: var(--panel); color: var(--ink);
+      border: 1px solid var(--line); border-radius: 12px;
+      font: inherit; font-size: 16px;
+    }
+    input[type=text]::placeholder { color: #5d687a; }
+    input[type=text]:focus-visible, button:focus-visible { outline: 2px solid var(--sage); outline-offset: 2px; }
+    button {
+      min-height: 48px; padding: 0 16px; border-radius: 12px; cursor: pointer;
+      font: inherit; font-size: 14px; border: 1px solid var(--line);
+      background: var(--panel); color: var(--ink);
+    }
+    button.primary { background: var(--sage); color: #14201a; border-color: var(--sage); font-weight: 600; }
+    button:active { transform: translateY(1px); }
+
+    .stage {
+      margin-top: 16px; border: 1px solid var(--line); border-radius: 18px; overflow: hidden;
+      background: #050810;
+    }
+    canvas { display: block; width: 100%; aspect-ratio: 1 / 1; }
+
+    .chips { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 14px 0; }
+    .chip { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+    .chip b { display: block; font-size: 11px; font-weight: 400; color: var(--muted); letter-spacing: .1em; }
+    .chip span { font-size: 15px; }
+    .story { font-family: var(--serif); font-size: 15px; color: var(--sand); margin: 6px 2px 16px; min-height: 3.4em; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .actions button { flex: 1 1 auto; }
+    .toast {
+      position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px);
+      background: var(--ink); color: #101725; padding: 10px 16px; border-radius: 999px;
+      font-size: 13px; opacity: 0; pointer-events: none; transition: .25s;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    footer { margin-top: 26px; font-size: 12px; color: #5d687a; text-align: center; }
+    @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>ことば星座</h1>
+      <span class="sub">WORD CONSTELLATION</span>
+    </header>
+    <p class="lead">好きな言葉や名前を入れると、同じ言葉からはいつも同じ、あなただけの星座ができます。</p>
+
+    <form id="form" autocomplete="off">
+      <input id="q" type="text" maxlength="12" placeholder="例：朝焼け、夢、名前など" aria-label="言葉を入力">
+      <button class="primary" type="submit">つくる</button>
+    </form>
+
+    <div class="stage"><canvas id="cv" aria-label="生成された星座"></canvas></div>
+
+    <div class="chips">
+      <div class="chip"><b>見ごろ</b><span id="i-season">—</span></div>
+      <div class="chip"><b>探す方角</b><span id="i-dir">—</span></div>
+      <div class="chip"><b>明るさ</b><span id="i-bright">—</span></div>
+      <div class="chip"><b>星の数</b><span id="i-count">—</span></div>
+    </div>
+    <p class="story" id="story"></p>
+
+    <div class="actions">
+      <button id="random" type="button">おまかせ</button>
+      <button id="save" type="button">画像で保存</button>
+      <button id="share" type="button">リンクを共有</button>
+    </div>
+    <footer>言葉の「ゆらぎ」から星の位置を決めています。</footer>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* 文字列 → 再現可能な乱数 */
+  function xmur3(str) {
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return () => {
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= h >>> 16) >>> 0;
+    };
+  }
+  function mulberry32(a) {
+    return () => {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  const SEASONS = ['春', '夏', '秋', '冬'];
+  const DIRS = ['北の空', '東の空', '南の空', '西の空', '真上'];
+  const STORIES = [
+    (n, s) => `${s}の夜、静かな空にだけ現れる。${n}は、見つけた人の願いを一つ聞くと言われている。`,
+    (n, s) => `${n}の星々は、遠い旅人の道しるべ。${s}になると、そっと輪郭を濃くする。`,
+    (n, s) => `昔の船乗りは、${n}が見えると港が近いと信じた。${s}の風と一緒にやってくる星座。`,
+    (n, s) => `${n}は、ひとりで見るとやさしく、誰かと見るともっと光る。${s}の夜がいちばんきれい。`,
+    (n, s) => `星の数は少なくても、${n}は迷わない。${s}の空で、まっすぐに瞬いている。`
+  ];
+  const SAMPLES = ['夢', '朝焼け', '海辺', '約束', 'はじまり', 'ひみつ', '夏休み', '音楽', 'コーヒー', '旅', '追い風', 'ふるさと'];
+
+  let model = null;   // 現在の星座
+  let t0 = 0;         // 生成時刻（描き込みアニメ用）
+
+  function build(text) {
+    const rnd = mulberry32(xmur3(text)());
+    const n = Math.max(7, Math.min(15, 6 + Math.min(text.length, 7) + Math.floor(rnd() * 3)));
+    const stars = [];
+    let minD = 0.17, tries = 0;
+    while (stars.length < n && tries < 2000) {
+      tries++;
+      if (tries % 200 === 0) minD *= 0.85;
+      const p = { x: 0.12 + rnd() * 0.76, y: 0.12 + rnd() * 0.62 };
+      if (stars.every(q => Math.hypot(q.x - p.x, q.y - p.y) > minD)) {
+        p.r = 1.6 + rnd() * rnd() * 4.2;
+        p.ph = rnd() * 6.28;
+        p.sp = 0.6 + rnd() * 1.6;
+        stars.push(p);
+      }
+    }
+    // 最小全域木で星をつなぐ
+    const edges = [], used = new Set([0]);
+    while (used.size < stars.length) {
+      let best = null;
+      for (const i of used) for (let j = 0; j < stars.length; j++) {
+        if (used.has(j)) continue;
+        const d = Math.hypot(stars[i].x - stars[j].x, stars[i].y - stars[j].y);
+        if (!best || d < best.d) best = { i, j, d };
+      }
+      edges.push([best.i, best.j]); used.add(best.j);
+    }
+    // 輪っかを少し足す
+    const extra = 1 + Math.floor(rnd() * 2);
+    for (let k = 0, added = 0; k < 60 && added < extra; k++) {
+      const i = Math.floor(rnd() * stars.length), j = Math.floor(rnd() * stars.length);
+      if (i === j || edges.some(e => (e[0] === i && e[1] === j) || (e[0] === j && e[1] === i))) continue;
+      if (Math.hypot(stars[i].x - stars[j].x, stars[i].y - stars[j].y) < 0.34) { edges.push([i, j]); added++; }
+    }
+    const dust = Array.from({ length: 110 }, () => ({
+      x: rnd(), y: rnd(), r: 0.3 + rnd() * 0.9, ph: rnd() * 6.28, sp: 0.4 + rnd() * 1.2
+    }));
+    const season = SEASONS[Math.floor(rnd() * 4)];
+    const dir = DIRS[Math.floor(rnd() * DIRS.length)];
+    const bright = 1 + Math.floor(rnd() * 5);
+    const name = `${text}座`;
+    const story = STORIES[Math.floor(rnd() * STORIES.length)](name, season);
+    return { text, name, stars, edges, dust, season, dir, bright, story };
+  }
+
+  function fit() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const w = cv.clientWidth;
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(w * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function draw(now) {
+    if (!model) return;
+    const W = cv.clientWidth, H = W;
+    const t = now / 1000;
+    const age = reduce ? 99 : (now - t0) / 1000;
+    const g = ctx.createRadialGradient(W / 2, H * 0.3, 10, W / 2, H / 2, W * 0.85);
+    g.addColorStop(0, '#0e1730'); g.addColorStop(1, '#03050b');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    for (const d of model.dust) {
+      const a = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(t * d.sp + d.ph) * (reduce ? 0 : 1));
+      ctx.fillStyle = `rgba(238,240,232,${a})`;
+      ctx.beginPath(); ctx.arc(d.x * W, d.y * H, d.r, 0, 6.283); ctx.fill();
+    }
+
+    // 線：生成直後に順番に描き込む
+    const E = model.edges.length;
+    ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+    model.edges.forEach(([i, j], k) => {
+      const p = Math.max(0, Math.min(1, (age - 0.15 * k) / 0.5));
+      if (p <= 0) return;
+      const a = model.stars[i], b = model.stars[j];
+      ctx.strokeStyle = 'rgba(168,184,162,0.6)';
+      ctx.beginPath();
+      ctx.moveTo(a.x * W, a.y * H);
+      ctx.lineTo((a.x + (b.x - a.x) * p) * W, (a.y + (b.y - a.y) * p) * H);
+      ctx.stroke();
+    });
+
+    for (const s of model.stars) {
+      const tw = reduce ? 1 : 0.8 + 0.2 * Math.sin(t * s.sp + s.ph);
+      const r = s.r * tw * (W / 420);
+      const x = s.x * W, y = s.y * H;
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 5);
+      glow.addColorStop(0, 'rgba(231,220,197,0.55)'); glow.addColorStop(1, 'rgba(231,220,197,0)');
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, r * 5, 0, 6.283); ctx.fill();
+      ctx.fillStyle = '#fbf8ee'; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill();
+    }
+
+    // タイトル（画像保存にも入る）
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#eef0e8';
+    ctx.font = `${Math.round(W * 0.06)}px Georgia, "Hiragino Mincho ProN", "Noto Serif JP", serif`;
+    ctx.fillText(model.name.split('').join(' '), W / 2, H * 0.9);
+    ctx.fillStyle = '#8d98a8';
+    ctx.font = `${Math.round(W * 0.027)}px -apple-system, "Hiragino Sans", sans-serif`;
+    ctx.fillText('WORD CONSTELLATION', W / 2, H * 0.945);
+  }
+
+  function loop(now) { draw(now); requestAnimationFrame(loop); }
+
+  function show(text, pushUrl) {
+    model = build(text);
+    t0 = performance.now();
+    $('i-season').textContent = model.season;
+    $('i-dir').textContent = model.dir;
+    $('i-bright').textContent = '★'.repeat(model.bright) + '☆'.repeat(5 - model.bright);
+    $('i-count').textContent = `${model.stars.length}個`;
+    $('story').textContent = model.story;
+    $('q').value = text;
+    if (pushUrl) {
+      try {
+        const u = new URL(location.href);
+        u.searchParams.set('q', text);
+        history.replaceState(null, '', u);
+      } catch (e) { /* file:// などでは無視 */ }
+    }
+  }
+
+  function toast(msg) {
+    const el = $('toast'); el.textContent = msg; el.classList.add('show');
+    clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 1800);
+  }
+
+  $('form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = $('q').value.trim();
+    if (!v) { toast('言葉を入れてみてください'); return; }
+    show(v, true);
+  });
+  $('random').addEventListener('click', () => {
+    let v; do { v = SAMPLES[Math.floor(Math.random() * SAMPLES.length)]; } while (model && v === model.text);
+    show(v, true);
+  });
+  $('save').addEventListener('click', () => {
+    draw(t0 + 10000); // 線を描き切った状態で書き出す
+    cv.toBlob((blob) => {
+      if (!blob) { toast('保存に失敗しました'); return; }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `constellation-${model.text}.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      toast('画像を保存しました');
+    }, 'image/png');
+  });
+  $('share').addEventListener('click', async () => {
+    const u = new URL(location.href); u.searchParams.set('q', model.text);
+    const url = u.toString();
+    try {
+      if (navigator.share) { await navigator.share({ title: model.name, text: `${model.name}を見つけました`, url }); return; }
+      await navigator.clipboard.writeText(url); toast('リンクをコピーしました');
+    } catch (e) {
+      if (e && e.name !== 'AbortError') toast('共有できませんでした');
+    }
+  });
+  addEventListener('resize', fit);
+
+  fit();
+  const initial = (new URLSearchParams(location.search).get('q') || '').trim().slice(0, 12);
+  show(initial || SAMPLES[Math.floor(Math.random() * SAMPLES.length)], false);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
