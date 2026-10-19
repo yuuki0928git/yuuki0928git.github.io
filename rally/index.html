@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f3ec">
+  <meta name="description" content="羽根を落とさず、ラリーを続ける。幕が開いて、幕が下りる、ひとり用のバドミントンゲーム。">
+  <title>ラリー</title>
+  <style>
+    :root { --bg:#f6f3ec; --ink:#2c4536; --sage:#a8b8a2; --sand:#e7dcc5; --muted:#75806f; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--ink); overscroll-behavior: none; }
+    body {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+      padding: env(safe-area-inset-top) 12px env(safe-area-inset-bottom);
+    }
+    canvas {
+      display: block; touch-action: none; border-radius: 18px;
+      width: min(100vw - 24px, 440px, calc((100dvh - 56px) * 9 / 14));
+      aspect-ratio: 9 / 14; background: #fbf9f3; box-shadow: 0 1px 0 #d9d6cb, 0 12px 30px -18px rgba(44,69,54,.5);
+    }
+    .hint { font-size: 12px; color: var(--muted); letter-spacing: .08em; text-align: center; }
+  </style>
+</head>
+<body>
+  <canvas id="cv" aria-label="バドミントンのラリーゲーム。画面をなぞってラケットを左右に動かします"></canvas>
+  <div class="hint">ゆびで左右になぞる ／ 勢いよく動かすとスマッシュ</div>
+
+<script>
+(() => {
+  'use strict';
+  const W = 360, H = 560, RY = H - 84, G = 900, K = 0.003, HIT = 760;
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const C = { bg: '#fbf9f3', ink: '#2c4536', sage: '#a8b8a2', sand: '#e7dcc5', line: '#d9d6cb', muted: '#75806f', curtain: '#2c4536' };
+
+  let best = 0;
+  try { best = +localStorage.getItem('rally-best') || 0; } catch (e) {}
+
+  const S = {
+    mode: 'intro', // intro → opening → play → closing → over
+    t: 0, curtain: 1,
+    sx: 180, sy: 110, vx: 0, vy: 0, ang: 0,
+    rx: 180, tx: 180, rvx: 0, swing: 0,
+    hits: 0, score: 0, wind: 0, flash: 0, smash: 0, msg: '', msgT: 0, newBest: false, trail: []
+  };
+
+  function resetRally() {
+    Object.assign(S, { sx: 150 + Math.random() * 60, sy: 110, vx: (Math.random() - .5) * 60, vy: 0,
+      rx: 180, tx: 180, hits: 0, score: 0, wind: 0, flash: 0, smash: 0, msg: '', msgT: 0, newBest: false, trail: [] });
+  }
+
+  function say(text) { S.msg = text; S.msgT = 1.2; }
+
+  function step(dt) {
+    // ラケット：指に少し遅れてついてくる
+    const rw = Math.max(26, 42 - S.hits * 0.3);
+    const nrx = S.rx + (S.tx - S.rx) * Math.min(1, dt * 18);
+    S.rvx = (nrx - S.rx) / dt; S.rx = Math.max(24, Math.min(W - 24, nrx));
+    S.swing = Math.max(0, S.swing - dt * 4);
+    S.flash = Math.max(0, S.flash - dt * 3);
+    S.msgT = Math.max(0, S.msgT - dt);
+
+    // 羽根：重力＋空気抵抗（二乗）＋風
+    S.vx += S.wind * dt; S.vy += G * dt;
+    const sp = Math.hypot(S.vx, S.vy);
+    S.vx -= S.vx * sp * K * dt; S.vy -= S.vy * sp * K * dt;
+    const py = S.sy;
+    S.sx += S.vx * dt; S.sy += S.vy * dt;
+    if (S.sx < 10) { S.sx = 10; S.vx = Math.abs(S.vx) * .7; }
+    if (S.sx > W - 10) { S.sx = W - 10; S.vx = -Math.abs(S.vx) * .7; }
+    if (S.sy < 12) { S.sy = 12; S.vy = Math.abs(S.vy) * .3; }
+    S.ang = Math.atan2(S.vy, S.vx) - Math.PI / 2; // 頭が進行方向
+    S.trail.push([S.sx, S.sy]); if (S.trail.length > 14) S.trail.shift();
+
+    // ヒット判定
+    if (S.vy > 0 && py <= RY && S.sy >= RY && Math.abs(S.sx - S.rx) < rw + 4) {
+      const off = (S.sx - S.rx) / rw;
+      const smash = Math.abs(S.rvx) > 520;
+      S.vx = off * 260 + S.rvx * 0.25;
+      S.vy = -(HIT + Math.min(Math.abs(S.rvx) * 0.25, 120));
+      S.hits++; S.score += smash ? 3 : 1; S.swing = 1; S.flash = 1;
+      if (smash) say('スマッシュ！ +3');
+      else if (S.hits % 10 === 0) say(`${S.hits}回ラリー`);
+      if (S.hits % 4 === 0) S.wind = (Math.random() * 2 - 1) * Math.min(40 + S.hits * 6, 220);
+    }
+    if (S.sy > H + 24) finish();
+  }
+
+  function finish() {
+    S.mode = 'closing'; S.t = 0;
+    if (S.score > best) {
+      S.newBest = S.score > 0; best = S.score;
+      try { localStorage.setItem('rally-best', String(best)); } catch (e) {}
+    }
+  }
+
+  function verdict(n) {
+    if (n >= 60) return '拍手が鳴りやまない。';
+    if (n >= 30) return 'いいラリーでした。';
+    if (n >= 12) return '息が合ってきました。';
+    return 'まずは一本ずつ。';
+  }
+
+  /* ---------- 描画 ---------- */
+  function court() {
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = C.line; ctx.lineWidth = 2;
+    ctx.strokeRect(24, 40, W - 48, H - 80);
+    ctx.beginPath(); ctx.moveTo(24, 40 + (H - 80) * .5); ctx.lineTo(W - 24, 40 + (H - 80) * .5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W / 2, RY - 50); ctx.lineTo(W / 2, H - 40); ctx.stroke();
+    // 大きな円（サイトとおそろい）
+    ctx.fillStyle = 'rgba(168,184,162,.18)';
+    ctx.beginPath(); ctx.arc(W * .8, H * .22, 90, 0, 6.283); ctx.fill();
+    ctx.fillStyle = 'rgba(231,220,197,.45)';
+    ctx.beginPath(); ctx.arc(W * .15, H * .5, 60, 0, 6.283); ctx.fill();
+  }
+
+  function racket() {
+    const rw = Math.max(26, 42 - S.hits * 0.3);
+    ctx.save();
+    ctx.translate(S.rx, RY + 6);
+    ctx.rotate(-0.35 - S.swing * 0.5 + Math.max(-.25, Math.min(.25, S.rvx / 2400))); // 左利きなので、グリップは左下
+    // シャフトとグリップ
+    ctx.strokeStyle = C.ink; ctx.lineCap = 'round';
+    ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, 16); ctx.lineTo(-6, 58); ctx.stroke();
+    ctx.lineWidth = 7; ctx.strokeStyle = C.sage; ctx.beginPath(); ctx.moveTo(-5, 46); ctx.lineTo(-7.5, 66); ctx.stroke();
+    // ヘッド
+    ctx.fillStyle = 'rgba(251,249,243,.85)';
+    ctx.beginPath(); ctx.ellipse(0, 0, rw, 17, 0, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 3; ctx.stroke();
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(44,69,54,.35)';
+    for (let i = -rw + 8; i < rw - 4; i += 8) { ctx.beginPath(); ctx.moveTo(i, -Math.sqrt(Math.max(0, 289 - (i / rw * 17) ** 2))); ctx.lineTo(i, Math.sqrt(Math.max(0, 289 - (i / rw * 17) ** 2))); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  function shuttle() {
+    // 軌跡
+    S.trail.forEach(([x, y], i) => {
+      ctx.fillStyle = `rgba(168,184,162,${i / S.trail.length * .35})`;
+      ctx.beginPath(); ctx.arc(x, y, 2 + i * .25, 0, 6.283); ctx.fill();
+    });
+    ctx.save(); ctx.translate(S.sx, S.sy); ctx.rotate(S.ang);
+    // 羽（後ろ側）
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-5, 4); ctx.lineTo(-13, 26); ctx.lineTo(13, 26); ctx.lineTo(5, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-2, 5); ctx.lineTo(-4.5, 26); ctx.moveTo(2, 5); ctx.lineTo(4.5, 26); ctx.moveTo(0, 5); ctx.lineTo(0, 26); ctx.stroke();
+    // コルク
+    ctx.fillStyle = C.sand; ctx.beginPath(); ctx.arc(0, 0, 6.5, 0, 6.283); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+
+  function hud() {
+    ctx.textAlign = 'left'; ctx.fillStyle = C.ink;
+    ctx.font = '600 30px Georgia, "Hiragino Mincho ProN", serif';
+    ctx.fillText(S.score, 22, 38);
+    ctx.font = '11px -apple-system, "Hiragino Sans", sans-serif'; ctx.fillStyle = C.muted;
+    ctx.fillText(`BEST ${best}`, 22, 54);
+    // 風インジケータ
+    if (S.mode === 'play') {
+      const w = S.wind, a = Math.min(1, Math.abs(w) / 200);
+      ctx.textAlign = 'right'; ctx.fillText(Math.abs(w) < 12 ? '風 なし' : '風', W - 22, 38);
+      if (Math.abs(w) >= 12) {
+        const dir = Math.sign(w), cx = W - 70, len = 10 + a * 22;
+        ctx.strokeStyle = C.ink; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(cx - dir * len, 33); ctx.lineTo(cx + dir * len, 33);
+        ctx.lineTo(cx + dir * (len - 6), 28); ctx.moveTo(cx + dir * len, 33); ctx.lineTo(cx + dir * (len - 6), 38); ctx.stroke();
+      }
+    }
+    if (S.msgT > 0) {
+      ctx.textAlign = 'center'; ctx.globalAlpha = Math.min(1, S.msgT * 2);
+      ctx.fillStyle = C.ink; ctx.font = '600 20px -apple-system, "Hiragino Sans", sans-serif';
+      ctx.fillText(S.msg, W / 2, H * .38 - (1.2 - S.msgT) * 16); ctx.globalAlpha = 1;
+    }
+  }
+
+  function curtains(c) { // c: 1=閉じ, 0=全開
+    if (c <= 0.001) return;
+    const half = W / 2, w = half * c;
+    ctx.fillStyle = C.curtain;
+    ctx.fillRect(0, 0, w, H); ctx.fillRect(W - w, 0, w, H);
+    // ひだ
+    ctx.fillStyle = 'rgba(255,255,255,.06)';
+    for (let i = 0; i < 8; i++) {
+      const x = (i + .5) / 8 * w;
+      ctx.fillRect(x - 5, 0, 10, H); ctx.fillRect(W - x - 5, 0, 10, H);
+    }
+    ctx.fillStyle = C.sand; ctx.fillRect(0, 0, w, 6); ctx.fillRect(W - w, 0, w, 6);
+  }
+
+  function centerText(lines) {
+    ctx.textAlign = 'center';
+    lines.forEach(([txt, size, color, y, weight]) => {
+      ctx.fillStyle = color; ctx.font = `${weight || 400} ${size}px Georgia, "Hiragino Mincho ProN", "Noto Serif JP", serif`;
+      ctx.fillText(txt, W / 2, y);
+    });
+  }
+
+  function render() {
+    court(); racket(); if (S.mode !== 'intro') shuttle(); hud();
+    if (S.mode === 'intro') {
+      curtains(1);
+      centerText([['R A L L Y', 38, '#f6f3ec', H * .42, 400], ['タップで幕が上がります', 14, C.sand, H * .42 + 34, 400]]);
+    } else if (S.mode === 'opening') curtains(S.curtain);
+    else if (S.mode === 'closing') curtains(S.curtain);
+    else if (S.mode === 'over') {
+      curtains(1);
+      centerText([
+        ['カーテンコール', 15, C.sand, H * .3, 400],
+        [String(S.score), 76, '#f6f3ec', H * .43, 400],
+        [S.newBest ? 'ベスト更新！' : `BEST ${best}`, 16, S.newBest ? '#f2d98d' : C.sage, H * .5, 400],
+        [verdict(S.score), 16, '#f6f3ec', H * .58, 400],
+        ['タップでもう一度', 13, C.sand, H * .7, 400]
+      ]);
+    }
+  }
+
+  /* ---------- ループ・入力 ---------- */
+  let last = 0;
+  function frame(now) {
+    const dt = Math.min(1 / 30, (now - last) / 1000 || 0); last = now;
+    S.t += dt;
+    if (S.mode === 'opening') {
+      S.curtain = Math.max(0, S.curtain - dt / (reduce ? .01 : .9));
+      if (S.curtain === 0) S.mode = 'play';
+      S.rx = S.rx + (S.tx - S.rx) * Math.min(1, dt * 18);
+    } else if (S.mode === 'play') {
+      step(dt);
+    } else if (S.mode === 'closing') {
+      S.curtain = Math.min(1, S.curtain + dt / (reduce ? .01 : .8));
+      if (S.curtain === 1) S.mode = 'over';
+    }
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  function toLocalX(e) {
+    const r = cv.getBoundingClientRect();
+    return (e.clientX - r.left) / r.width * W;
+  }
+  function press(e) {
+    S.tx = toLocalX(e);
+    if (S.mode === 'intro' || (S.mode === 'over')) {
+      resetRally(); S.curtain = 1; S.mode = 'opening'; S.rx = S.tx = Math.max(24, Math.min(W - 24, S.tx));
+    }
+  }
+  cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); press(e); });
+  cv.addEventListener('pointermove', (e) => { S.tx = toLocalX(e); });
+  addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') S.tx -= 40;
+    if (e.key === 'ArrowRight') S.tx += 40;
+    if (e.key === ' ' || e.key === 'Enter') { if (S.mode === 'intro' || S.mode === 'over') { resetRally(); S.curtain = 1; S.mode = 'opening'; } }
+  });
+
+  function fit() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const w = cv.clientWidth;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(w * dpr * H / W);
+    ctx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
+  }
+  addEventListener('resize', fit);
+  fit(); resetRally();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
