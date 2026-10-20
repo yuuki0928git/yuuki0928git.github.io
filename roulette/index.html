@@ -8,7 +8,7 @@
         content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="theme-color" content="#f7f5ef">
   <title>Roulette Personal</title>
-  <meta name="description" content="項目を入力して回すシンプルな個人用ルーレット">
+  <meta name="description" content="ルーレットとグループ分けができるシンプルな個人用ツール">
 
   <style>
     :root {
@@ -462,8 +462,167 @@
       }
     }
 
+    [hidden] {
+      display: none !important;
+    }
+
+    /* モード切り替えタブ */
+    .tabs {
+      display: flex;
+      gap: 6px;
+      margin: 0 0 22px;
+      padding: 5px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--soft);
+    }
+
+    .tab {
+      flex: 1;
+      min-height: 42px;
+      padding: 8px 12px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .tab.active {
+      border-color: var(--line);
+      background: var(--paper);
+      color: var(--green-dark);
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(56, 62, 48, .06);
+    }
+
+    /* グループ分け */
+    .group-settings {
+      display: flex;
+      gap: 14px;
+    }
+
+    .group-settings .field {
+      flex: 1;
+      min-width: 0;
+      margin-bottom: 12px;
+    }
+
+    .num-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .num {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      min-height: 49px;
+      padding: 12px 14px;
+      border: 1px solid #dcded4;
+      border-radius: 12px;
+      outline: none;
+      background: #fff;
+      color: var(--ink);
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    .num:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(135, 153, 130, .16);
+    }
+
+    .unit {
+      flex: none;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .group-summary {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    #group-button {
+      display: block;
+      width: 100%;
+      letter-spacing: .08em;
+    }
+
+    .group-result {
+      margin-top: 22px;
+      padding: 20px;
+      border: 1px solid #dce4d6;
+      border-radius: 16px;
+      background: #f4f6f0;
+    }
+
+    .group-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 10px;
+      margin: 0 0 16px;
+    }
+
+    .group-card {
+      padding: 12px 14px;
+      border: 1px solid #dce4d6;
+      border-radius: 14px;
+      background: var(--paper);
+      animation: pop .35s ease both;
+    }
+
+    .group-card.rest {
+      border-style: dashed;
+      background: transparent;
+    }
+
+    .group-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 0 0 6px;
+      color: var(--green-dark);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 16px;
+    }
+
+    .group-title small {
+      color: var(--muted);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      font-size: 11px;
+    }
+
+    .group-card ul {
+      margin: 0;
+      padding: 0;
+    }
+
+    .group-card li,
+    .group-card li:first-child {
+      padding: 3px 0;
+      border: 0;
+      overflow-wrap: anywhere;
+      font-size: 15px;
+    }
+
+    .group-card li.none {
+      color: var(--muted);
+    }
+
+    #copy-button {
+      width: 100%;
+    }
+
+    @keyframes pop {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: none; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       button, input { transition: none; }
+      .group-card { animation: none; }
     }
   </style>
 </head>
@@ -480,16 +639,23 @@
       <p class="eyebrow">A little utility</p>
       <h1>Roulette<br>Personal.</h1>
       <p class="intro">
-        項目を入力して回すだけの、シンプルなルーレットです。
+        項目を入力して回すルーレットと、メンバーをブロックに分けるグループ分けができます。
       </p>
     </header>
 
     <main>
-      <h2 class="section-title">Spin the wheel</h2>
-      <p class="section-description">
+      <h2 class="section-title">Pick a mode</h2>
+
+      <div class="tabs" role="tablist" aria-label="モード">
+        <button class="tab active" type="button" role="tab" data-mode="roulette" aria-selected="true">ルーレット</button>
+        <button class="tab" type="button" role="tab" data-mode="group" aria-selected="false">グループ分け</button>
+      </div>
+
+      <p id="mode-description" class="section-description">
         項目を2つ以上入れて、回すボタンを押してください。
       </p>
 
+      <div id="roulette-panel">
       <div class="wheel-wrap">
         <div class="pointer" aria-hidden="true"></div>
         <canvas id="wheel" width="720" height="720" role="img" aria-label="ルーレット"></canvas>
@@ -502,15 +668,44 @@
         <p class="result-label">RESULT</p>
         <p id="result-value" class="result-value"></p>
       </section>
+      </div>
+
+      <div id="group-panel" hidden>
+        <div class="group-settings">
+          <div class="field">
+            <label for="size-input">1ブロックの人数</label>
+            <div class="num-row">
+              <input id="size-input" class="num" type="number" inputmode="numeric" min="1" max="20" value="2">
+              <span class="unit">人ずつ</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="blocks-input">ブロック数</label>
+            <div class="num-row">
+              <input id="blocks-input" class="num" type="number" inputmode="numeric" min="1" max="10" value="3">
+              <span class="unit">ブロック</span>
+            </div>
+          </div>
+        </div>
+        <p id="group-summary" class="group-summary"></p>
+
+        <button id="group-button" class="primary" type="button">グループを分ける</button>
+
+        <section id="group-result" class="group-result" aria-live="polite" hidden>
+          <p class="result-label">RESULT</p>
+          <div id="group-grid" class="group-grid"></div>
+          <button id="copy-button" class="secondary" type="button">結果をコピー</button>
+        </section>
+      </div>
 
       <form id="add-form" novalidate>
         <div class="list-head">
-          <span>項目</span>
+          <span id="list-label">項目</span>
           <span id="count" class="count"></span>
         </div>
 
         <div class="field">
-          <label for="item-input">項目を追加</label>
+          <label for="item-input">項目・メンバーを追加</label>
           <div class="add-row">
             <input
               id="item-input"
@@ -529,7 +724,7 @@
       <ul id="list"></ul>
 
       <div class="options">
-        <label class="check">
+        <label class="check" id="remove-wrap">
           <input id="remove-after" type="checkbox">
           当たった項目を除外する
         </label>
@@ -701,6 +896,8 @@
       drawWheel();
       spinButton.disabled = spinning || items.length < 2;
       clearButton.disabled = spinning || items.length === 0;
+      groupButton.disabled = items.length < 2;
+      updateGroupSummary();
     }
 
     form.addEventListener("submit", function (event) {
@@ -789,6 +986,207 @@
       }
 
       requestAnimationFrame(frame);
+    });
+
+    // ===== モード切り替え・グループ分け =====
+    const tabButtons = document.querySelectorAll(".tab");
+    const roulettePanel = document.getElementById("roulette-panel");
+    const groupPanel = document.getElementById("group-panel");
+    const modeDescription = document.getElementById("mode-description");
+    const listLabel = document.getElementById("list-label");
+    const removeWrap = document.getElementById("remove-wrap");
+    const sizeInput = document.getElementById("size-input");
+    const blocksInput = document.getElementById("blocks-input");
+    const groupSummary = document.getElementById("group-summary");
+    const groupButton = document.getElementById("group-button");
+    const groupResult = document.getElementById("group-result");
+    const groupGrid = document.getElementById("group-grid");
+    const copyButton = document.getElementById("copy-button");
+
+    const DESCRIPTIONS = {
+      roulette: "項目を2つ以上入れて、回すボタンを押してください。",
+      group: "メンバーを2人以上入れて、1ブロックの人数とブロック数を決めてください。"
+    };
+
+    let lastGroupText = "";
+
+    function setMode(next) {
+      if (spinning) return;
+
+      tabButtons.forEach(function (button) {
+        const on = button.dataset.mode === next;
+        button.classList.toggle("active", on);
+        button.setAttribute("aria-selected", String(on));
+      });
+
+      roulettePanel.hidden = next !== "roulette";
+      groupPanel.hidden = next !== "group";
+      removeWrap.hidden = next !== "roulette";
+      modeDescription.textContent = DESCRIPTIONS[next];
+      listLabel.textContent = next === "group" ? "メンバー" : "項目";
+      showStatus("");
+    }
+
+    tabButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        setMode(button.dataset.mode);
+      });
+    });
+
+    function readNumber(el, min, max) {
+      const value = parseInt(el.value, 10);
+      if (Number.isNaN(value)) return null;
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function updateGroupSummary() {
+      const size = readNumber(sizeInput, 1, 20);
+      const blocks = readNumber(blocksInput, 1, 10);
+
+      if (size === null || blocks === null) {
+        groupSummary.textContent = "人数とブロック数を入力してください。";
+        return;
+      }
+
+      const capacity = size * blocks;
+      const n = items.length;
+      let text = n + "人 ／ " + size + "人ずつ × " + blocks + "ブロック（定員 " + capacity + "人）";
+
+      if (n > capacity) {
+        text += " → " + (n - capacity) + "人があまります";
+      } else if (n < capacity) {
+        text += " → 人数が足りないので、各ブロックの人数を均等に調整します";
+      }
+      groupSummary.textContent = text;
+    }
+
+    sizeInput.addEventListener("input", updateGroupSummary);
+    blocksInput.addEventListener("input", updateGroupSummary);
+
+    function randomInt(max) {
+      if (window.crypto && window.crypto.getRandomValues) {
+        const buf = new Uint32Array(1);
+        window.crypto.getRandomValues(buf);
+        return buf[0] % max;
+      }
+      return Math.floor(Math.random() * max);
+    }
+
+    function shuffle(list) {
+      const a = list.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = randomInt(i + 1);
+        const tmp = a[i];
+        a[i] = a[j];
+        a[j] = tmp;
+      }
+      return a;
+    }
+
+    // 定員を超えた分は「あまり」、足りないときは各ブロックを均等に近づける
+    function splitGroups(list, blocks, size) {
+      const shuffled = shuffle(list);
+      const capacity = blocks * size;
+      let rest = [];
+
+      if (shuffled.length > capacity) {
+        rest = shuffled.slice(capacity);
+        shuffled.length = capacity;
+      }
+
+      const base = Math.floor(shuffled.length / blocks);
+      const extra = shuffled.length % blocks;
+      const groups = [];
+      let index = 0;
+
+      for (let i = 0; i < blocks; i++) {
+        const count = base + (i < extra ? 1 : 0);
+        groups.push(shuffled.slice(index, index + count));
+        index += count;
+      }
+
+      return { groups: groups, rest: rest };
+    }
+
+    function makeCard(title, members, order, isRest) {
+      const card = document.createElement("div");
+      card.className = "group-card" + (isRest ? " rest" : "");
+      card.style.animationDelay = (order * 60) + "ms";
+
+      const head = document.createElement("p");
+      head.className = "group-title";
+      const name = document.createElement("span");
+      name.textContent = title;
+      const count = document.createElement("small");
+      count.textContent = members.length + "人";
+      head.appendChild(name);
+      head.appendChild(count);
+
+      const ul = document.createElement("ul");
+      if (members.length === 0) {
+        const li = document.createElement("li");
+        li.className = "none";
+        li.textContent = "—";
+        ul.appendChild(li);
+      }
+      members.forEach(function (member) {
+        const li = document.createElement("li");
+        li.textContent = member;
+        ul.appendChild(li);
+      });
+
+      card.appendChild(head);
+      card.appendChild(ul);
+      return card;
+    }
+
+    groupButton.addEventListener("click", function () {
+      const size = readNumber(sizeInput, 1, 20);
+      const blocks = readNumber(blocksInput, 1, 10);
+
+      if (size === null || blocks === null) {
+        showStatus("人数とブロック数を入力してください。", true);
+        return;
+      }
+      if (items.length < 2) {
+        showStatus("メンバーを2人以上入れてください。", true);
+        return;
+      }
+
+      // 範囲外の入力は補正した値を画面にも反映する
+      sizeInput.value = size;
+      blocksInput.value = blocks;
+
+      const result = splitGroups(items, blocks, size);
+      const lines = [];
+      groupGrid.innerHTML = "";
+
+      result.groups.forEach(function (members, i) {
+        const title = "ブロック" + (i + 1);
+        groupGrid.appendChild(makeCard(title, members, i, false));
+        lines.push(title + "：" + (members.length ? members.join("、") : "なし"));
+      });
+
+      if (result.rest.length > 0) {
+        groupGrid.appendChild(makeCard("あまり", result.rest, result.groups.length, true));
+        lines.push("あまり：" + result.rest.join("、"));
+      }
+
+      lastGroupText = lines.join("\n");
+      groupResult.hidden = false;
+      groupButton.textContent = "もう一度分ける";
+      showStatus("");
+    });
+
+    copyButton.addEventListener("click", async function () {
+      if (!lastGroupText) return;
+
+      try {
+        await navigator.clipboard.writeText(lastGroupText);
+        showStatus("結果をコピーしました。");
+      } catch (error) {
+        showStatus("自動コピーできませんでした。結果を長押ししてコピーしてください。", true);
+      }
     });
 
     refresh();
