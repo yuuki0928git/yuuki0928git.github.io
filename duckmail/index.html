@@ -396,7 +396,7 @@
 
       <form id="generator-form" novalidate>
         <div class="field">
-          <label for="recipient">転送先メールアドレス</label>
+          <label for="recipient">送信先（相手の）メールアドレス</label>
           <input
             id="recipient"
             name="recipient"
@@ -408,7 +408,7 @@
             placeholder="hoge@gmail.com"
             required
           >
-          <p class="hint">メールを受け取りたいアドレスを入力します。</p>
+          <p class="hint">メールを送りたい相手のアドレスを入力します。</p>
         </div>
 
         <div class="field">
@@ -588,7 +588,7 @@
 
       if (!isValidEmail(recipient)) {
         resultSection.hidden = true;
-        showStatus("転送先メールアドレスの形式を確認してください。", true);
+        showStatus("相手のメールアドレスの形式を確認してください。", true);
         recipientInput.focus();
         return;
       }
