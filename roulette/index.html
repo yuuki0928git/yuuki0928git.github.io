@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="theme-color" content="#f7f5ef">
+  <title>Roulette Personal</title>
+  <meta name="description" content="項目を入力して回すシンプルな個人用ルーレット">
+
+  <style>
+    :root {
+      --bg: #f7f5ef;
+      --paper: #fffefa;
+      --ink: #333b33;
+      --muted: #73796f;
+      --green: #879982;
+      --green-dark: #526b54;
+      --line: #e5e4da;
+      --soft: #e8ede3;
+      --error: #a34840;
+      --radius: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 36px 18px;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 8%, #e4e9dc 0, #e4e9dc 95px, transparent 96px),
+        radial-gradient(circle at 94% 80%, #eee8dc 0, #eee8dc 125px, transparent 126px),
+        var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+        "Yu Gothic", Meiryo, sans-serif;
+      line-height: 1.7;
+    }
+
+    button, input {
+      font: inherit;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 30px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-right: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    header {
+      position: relative;
+      overflow: hidden;
+      padding: 34px 30px 38px;
+      border: 1px solid rgba(120, 135, 112, .15);
+      border-radius: 28px;
+      background: rgba(255, 254, 250, .78);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--green-dark);
+      font-size: 12px;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(34px, 7vw, 48px);
+      font-weight: 400;
+      letter-spacing: -.04em;
+      line-height: 1.15;
+    }
+
+    .intro {
+      position: relative;
+      z-index: 1;
+      max-width: 420px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .decoration {
+      position: absolute;
+      top: -35px;
+      right: -25px;
+      width: 180px;
+      height: 180px;
+      border: 1px solid rgba(135, 153, 130, .45);
+      border-radius: 50%;
+    }
+
+    .decoration::before,
+    .decoration::after {
+      position: absolute;
+      content: "";
+      border: 1px solid rgba(135, 153, 130, .35);
+      border-radius: 50%;
+    }
+
+    .decoration::before {
+      inset: 22px;
+    }
+
+    .decoration::after {
+      inset: 44px;
+      background: rgba(232, 237, 227, .5);
+    }
+
+    main {
+      margin-top: 20px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: 0 12px 35px rgba(56, 62, 48, .04);
+    }
+
+    .section-title {
+      margin: 0 0 6px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 24px;
+      font-weight: 400;
+    }
+
+    .section-description {
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* ルーレット本体 */
+    .wheel-wrap {
+      position: relative;
+      width: min(100%, 360px);
+      aspect-ratio: 1;
+      margin: 8px auto 24px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .pointer {
+      position: absolute;
+      top: -8px;
+      left: 50%;
+      z-index: 2;
+      width: 0;
+      height: 0;
+      transform: translateX(-50%);
+      border-left: 11px solid transparent;
+      border-right: 11px solid transparent;
+      border-top: 22px solid var(--green-dark);
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .18));
+    }
+
+    .hub {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 14%;
+      aspect-ratio: 1;
+      transform: translate(-50%, -50%);
+      border: 3px solid var(--green-dark);
+      border-radius: 50%;
+      background: var(--paper);
+    }
+
+    .field {
+      margin-bottom: 19px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    input[type="text"] {
+      display: block;
+      width: 100%;
+      min-height: 49px;
+      padding: 12px 14px;
+      border: 1px solid #dcded4;
+      border-radius: 12px;
+      outline: none;
+      background: #fff;
+      color: var(--ink);
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(135, 153, 130, .16);
+    }
+
+    input[type="text"]::placeholder {
+      color: #a5a79e;
+    }
+
+    .add-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .add-row input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    button {
+      min-height: 46px;
+      padding: 10px 19px;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: transform .15s, background .15s, opacity .15s;
+    }
+
+    button:active {
+      transform: scale(.98);
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    button:focus-visible {
+      outline: 3px solid rgba(82, 107, 84, .3);
+      outline-offset: 3px;
+    }
+
+    .primary {
+      background: var(--green-dark);
+      color: white;
+    }
+
+    .primary:hover:not(:disabled) {
+      background: #405943;
+    }
+
+    .secondary {
+      border-color: var(--line);
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .secondary:hover:not(:disabled) {
+      background: #f4f3ed;
+    }
+
+    #spin-button {
+      display: block;
+      width: 100%;
+      letter-spacing: .12em;
+    }
+
+    .result {
+      margin-top: 22px;
+      padding: 20px;
+      border: 1px solid #dce4d6;
+      border-radius: 16px;
+      background: #f4f6f0;
+      text-align: center;
+    }
+
+    .result[hidden] {
+      display: none;
+    }
+
+    .result-label {
+      margin: 0 0 8px;
+      color: var(--green-dark);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .08em;
+    }
+
+    .result-value {
+      overflow-wrap: anywhere;
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 26px;
+      line-height: 1.4;
+    }
+
+    .list-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin: 28px 0 8px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .count {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 2px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    li:first-child {
+      border-top: 1px solid var(--line);
+    }
+
+    li.empty {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .swatch {
+      flex: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .item-name {
+      flex: 1;
+      overflow-wrap: anywhere;
+      font-size: 15px;
+    }
+
+    .remove {
+      min-height: 36px;
+      padding: 2px 12px;
+      background: none;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .remove:hover:not(:disabled) {
+      color: var(--error);
+    }
+
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      font-weight: 400;
+      cursor: pointer;
+    }
+
+    .check input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--green-dark);
+    }
+
+    .status {
+      min-height: 24px;
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status.error {
+      color: var(--error);
+    }
+
+    .privacy {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      padding: 16px 18px;
+      border-radius: 15px;
+      background: rgba(232, 237, 227, .68);
+      color: #596456;
+      font-size: 12px;
+    }
+
+    .privacy strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--ink);
+      font-size: 13px;
+    }
+
+    footer {
+      padding: 25px 8px 0;
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 22px 13px;
+      }
+
+      header {
+        padding: 28px 22px 30px;
+      }
+
+      main {
+        padding: 22px 18px;
+      }
+
+      .decoration {
+        top: -50px;
+        right: -70px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      button, input { transition: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <div class="topline">
+      <span><span class="dot"></span>Personal tool</span>
+      <span>Simple &amp; private</span>
+    </div>
+
+    <header>
+      <div class="decoration" aria-hidden="true"></div>
+      <p class="eyebrow">A little utility</p>
+      <h1>Roulette<br>Personal.</h1>
+      <p class="intro">
+        項目を入力して回すだけの、シンプルなルーレットです。
+      </p>
+    </header>
+
+    <main>
+      <h2 class="section-title">Spin the wheel</h2>
+      <p class="section-description">
+        項目を2つ以上入れて、回すボタンを押してください。
+      </p>
+
+      <div class="wheel-wrap">
+        <div class="pointer" aria-hidden="true"></div>
+        <canvas id="wheel" width="720" height="720" role="img" aria-label="ルーレット"></canvas>
+        <div class="hub" aria-hidden="true"></div>
+      </div>
+
+      <button id="spin-button" class="primary" type="button">回す</button>
+
+      <section id="result" class="result" aria-live="polite" hidden>
+        <p class="result-label">RESULT</p>
+        <p id="result-value" class="result-value"></p>
+      </section>
+
+      <form id="add-form" novalidate>
+        <div class="list-head">
+          <span>項目</span>
+          <span id="count" class="count"></span>
+        </div>
+
+        <div class="field">
+          <label for="item-input">項目を追加</label>
+          <div class="add-row">
+            <input
+              id="item-input"
+              type="text"
+              maxlength="30"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+              placeholder="例：ラーメン"
+            >
+            <button class="secondary" type="submit">追加</button>
+          </div>
+        </div>
+      </form>
+
+      <ul id="list"></ul>
+
+      <div class="options">
+        <label class="check">
+          <input id="remove-after" type="checkbox">
+          当たった項目を除外する
+        </label>
+        <button id="clear-button" class="secondary" type="button">全削除</button>
+      </div>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </main>
+
+    <aside class="privacy">
+      <span aria-hidden="true">●</span>
+      <div>
+        <strong>このページのプライバシーについて</strong>
+        このページには、入力内容を外部へ送信する処理や、入力内容を保存する処理を実装していません。入力した項目は、このページを開いている間、ブラウザ内で処理されます。
+      </div>
+    </aside>
+
+    <footer>
+      Roulette Personal · A simple tool for personal use
+    </footer>
+  </div>
+
+  <script>
+    "use strict";
+
+    const MAX_ITEMS = 20;
+    const COLORS = [
+      { bg: "#879982", dark: true },
+      { bg: "#e8ede3", dark: false },
+      { bg: "#526b54", dark: true },
+      { bg: "#eee8dc", dark: false },
+      { bg: "#a9b8a1", dark: false },
+      { bg: "#c9bfa5", dark: false },
+      { bg: "#6f8670", dark: true },
+      { bg: "#dde4d5", dark: false }
+    ];
+
+    let items = ["ラーメン", "カレー", "寿司", "パスタ"];
+    let angle = 0;
+    let spinning = false;
+
+    const canvas = document.getElementById("wheel");
+    const ctx = canvas.getContext("2d");
+    const listEl = document.getElementById("list");
+    const countEl = document.getElementById("count");
+    const spinButton = document.getElementById("spin-button");
+    const clearButton = document.getElementById("clear-button");
+    const form = document.getElementById("add-form");
+    const input = document.getElementById("item-input");
+    const removeAfter = document.getElementById("remove-after");
+    const resultSection = document.getElementById("result");
+    const resultValue = document.getElementById("result-value");
+    const statusEl = document.getElementById("status");
+
+    function showStatus(message, isError = false) {
+      statusEl.textContent = message;
+      statusEl.classList.toggle("error", isError);
+    }
+
+    function colorAt(i, n) {
+      // 項目数が奇数のとき、最初と最後が同じ色にならないようにする
+      if (n > 1 && n % COLORS.length === 1 && i === n - 1) {
+        return COLORS[(i + 1) % COLORS.length];
+      }
+      return COLORS[i % COLORS.length];
+    }
+
+    function drawWheel() {
+      const size = canvas.width;
+      const c = size / 2;
+      const r = c - 6;
+      const n = items.length;
+
+      ctx.clearRect(0, 0, size, size);
+
+      if (n === 0) {
+        ctx.beginPath();
+        ctx.arc(c, c, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#e8ede3";
+        ctx.fill();
+        ctx.fillStyle = "#73796f";
+        ctx.font = "30px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("項目を追加してください", c, c);
+        return;
+      }
+
+      const step = (Math.PI * 2) / n;
+
+      for (let i = 0; i < n; i++) {
+        const a0 = angle + i * step - Math.PI / 2;
+        const a1 = a0 + step;
+        const color = colorAt(i, n);
+
+        ctx.beginPath();
+        ctx.moveTo(c, c);
+        ctx.arc(c, c, r, a0, a1);
+        ctx.closePath();
+        ctx.fillStyle = color.bg;
+        ctx.fill();
+        ctx.strokeStyle = "#fffefa";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(c, c);
+        ctx.rotate(a0 + step / 2);
+        ctx.fillStyle = color.dark ? "#ffffff" : "#333b33";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        const fontSize = Math.max(18, Math.min(34, Math.floor(r * step * 0.32)));
+        ctx.font = "600 " + fontSize + "px -apple-system, 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif";
+        let text = items[i];
+        if (text.length > 9) {
+          text = text.slice(0, 8) + "…";
+        }
+        ctx.fillText(text, r - 26, 0);
+        ctx.restore();
+      }
+    }
+
+    function renderList() {
+      listEl.innerHTML = "";
+
+      if (items.length === 0) {
+        const li = document.createElement("li");
+        li.className = "empty";
+        li.textContent = "項目がありません";
+        listEl.appendChild(li);
+      }
+
+      items.forEach(function (text, i) {
+        const li = document.createElement("li");
+
+        const swatch = document.createElement("span");
+        swatch.className = "swatch";
+        swatch.style.background = colorAt(i, items.length).bg;
+        swatch.style.border = "1px solid rgba(82, 107, 84, .35)";
+
+        const name = document.createElement("span");
+        name.className = "item-name";
+        name.textContent = text;
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "remove";
+        remove.textContent = "×";
+        remove.setAttribute("aria-label", text + " を削除");
+        remove.disabled = spinning;
+        remove.addEventListener("click", function () {
+          if (spinning) return;
+          items.splice(i, 1);
+          showStatus("");
+          refresh();
+        });
+
+        li.appendChild(swatch);
+        li.appendChild(name);
+        li.appendChild(remove);
+        listEl.appendChild(li);
+      });
+
+      countEl.textContent = items.length + " / " + MAX_ITEMS;
+    }
+
+    function refresh() {
+      renderList();
+      drawWheel();
+      spinButton.disabled = spinning || items.length < 2;
+      clearButton.disabled = spinning || items.length === 0;
+    }
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (spinning) return;
+
+      const value = input.value.trim();
+      if (!value) {
+        showStatus("項目を入力してください。", true);
+        return;
+      }
+      if (items.length >= MAX_ITEMS) {
+        showStatus("項目は最大" + MAX_ITEMS + "個までです。", true);
+        return;
+      }
+
+      items.push(value);
+      input.value = "";
+      input.focus();
+      showStatus("");
+      refresh();
+    });
+
+    clearButton.addEventListener("click", function () {
+      if (spinning || items.length === 0) return;
+      if (window.confirm("すべての項目を削除しますか？")) {
+        items = [];
+        resultSection.hidden = true;
+        showStatus("");
+        refresh();
+      }
+    });
+
+    function easeOut(x) {
+      return 1 - Math.pow(1 - x, 4);
+    }
+
+    spinButton.addEventListener("click", function () {
+      if (spinning || items.length < 2) return;
+
+      spinning = true;
+      resultSection.hidden = true;
+      showStatus("");
+      refresh();
+
+      const n = items.length;
+      const step = (Math.PI * 2) / n;
+      const winner = Math.floor(Math.random() * n);
+
+      // ポインタは真上。当選項目の中心が真上に来る角度（少しだけずらして自然に止める）
+      const jitter = (Math.random() - 0.5) * step * 0.7;
+      const target = -(winner * step + step / 2) + jitter;
+      const from = angle % (Math.PI * 2);
+      const turns = 5 + Math.floor(Math.random() * 3);
+      let end = target - Math.PI * 2 * turns;
+      while (end > from) {
+        end -= Math.PI * 2;
+      }
+
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const duration = reduce ? 600 : 4200;
+      let startTime = null;
+
+      function frame(ts) {
+        if (startTime === null) startTime = ts;
+        const p = Math.min(1, (ts - startTime) / duration);
+        angle = from + (end - from) * easeOut(p);
+        drawWheel();
+
+        if (p < 1) {
+          requestAnimationFrame(frame);
+          return;
+        }
+
+        angle = end % (Math.PI * 2);
+        const picked = items[winner];
+        resultValue.textContent = picked;
+        resultSection.hidden = false;
+        spinning = false;
+
+        if (removeAfter.checked) {
+          items.splice(winner, 1);
+          showStatus("「" + picked + "」を項目から除外しました。");
+        }
+        refresh();
+      }
+
+      requestAnimationFrame(frame);
+    });
+
+    refresh();
+  </script>
+</body>
+</html>
