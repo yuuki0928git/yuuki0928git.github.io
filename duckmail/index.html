@@ -244,6 +244,41 @@
       background: #f4f3ed;
     }
 
+    /* ボタン風のリンク（Gmail / メールアプリを開く） */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 10px 19px;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      text-align: center;
+      text-decoration: none;
+      transition: transform .15s, background .15s;
+    }
+
+    .btn:active {
+      transform: scale(.98);
+    }
+
+    .btn:focus-visible {
+      outline: 3px solid rgba(82, 107, 84, .3);
+      outline-offset: 3px;
+    }
+
+    .btn.primary {
+      flex: 1 1 100%;
+    }
+
+    .btn.secondary {
+      flex: 1 1 auto;
+    }
+
+    .copy-row .primary {
+      flex: 1 1 auto;
+    }
+
     .result {
       margin-top: 25px;
       padding: 20px;
@@ -401,9 +436,17 @@
         <p id="result-heading" class="result-label">GENERATED ADDRESS</p>
         <p id="result-value" class="result-value"></p>
         <div class="actions">
-          <button id="copy-button" class="primary" type="button">
+          <a id="gmail-link" class="btn primary" href="#" target="_blank" rel="noopener noreferrer">
+            Gmailで送信画面を開く
+          </a>
+        </div>
+        <div class="actions copy-row">
+          <button id="copy-button" class="secondary" type="button">
             結果をコピー
           </button>
+          <a id="mailto-link" class="btn secondary" href="#">
+            標準のメールアプリで開く
+          </a>
         </div>
       </section>
 
@@ -461,9 +504,70 @@
     }
 
     function generateAddress(recipient, duckAddress) {
-      const modifiedRecipient = recipient.trim().replace("@", "_at_");
+      const modifiedRecipient = recipient.trim().replace(/@/g, "_at_");
       return modifiedRecipient + "_" + duckAddress;
     }
+
+    const gmailLink = document.getElementById("gmail-link");
+    const mailtoLink = document.getElementById("mailto-link");
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+
+    // 生成したアドレスを宛先にして、各メールの作成画面へのリンクを更新する
+    function updateMailLinks(address) {
+      const to = encodeURIComponent(address);
+      gmailLink.href = "https://mail.google.com/mail/?view=cm&fs=1&to=" + to;
+      gmailLink.dataset.appUrl = "googlegmail:///co?to=" + to;
+      mailtoLink.href = "mailto:" + address;
+    }
+
+    // iPhone/iPadではGmailアプリを優先し、開けなければブラウザ版にする
+    gmailLink.addEventListener("click", function (event) {
+      if (!isIOS || !gmailLink.dataset.appUrl) {
+        return;
+      }
+
+      event.preventDefault();
+      const webUrl = gmailLink.href;
+      let leftPage = false;
+
+      function onHide() {
+        if (document.hidden) {
+          leftPage = true;
+        }
+      }
+
+      document.addEventListener("visibilitychange", onHide);
+      window.location.href = gmailLink.dataset.appUrl;
+
+      setTimeout(function () {
+        document.removeEventListener("visibilitychange", onHide);
+        if (!leftPage) {
+          window.open(webUrl, "_blank", "noopener");
+        }
+      }, 1200);
+    });
+
+    // 入力のたびに、生成済みの結果を最新の内容に更新する
+    function refreshIfGenerated() {
+      if (resultSection.hidden) {
+        return;
+      }
+
+      const recipient = recipientInput.value.trim();
+      const duckAddress = normalizeDuckAddress(duckInput.value);
+
+      if (isValidEmail(recipient) && duckAddress) {
+        const address = generateAddress(recipient, duckAddress);
+        resultValue.textContent = address;
+        updateMailLinks(address);
+      } else {
+        resultSection.hidden = true;
+        showStatus("入力内容が変わりました。もう一度生成してください。");
+      }
+    }
+
+    recipientInput.addEventListener("input", refreshIfGenerated);
+    duckInput.addEventListener("input", refreshIfGenerated);
 
     function showStatus(message, isError = false) {
       status.textContent = message;
@@ -496,9 +600,11 @@
         return;
       }
 
-      resultValue.textContent = generateAddress(recipient, duckAddress);
+      const address = generateAddress(recipient, duckAddress);
+      resultValue.textContent = address;
+      updateMailLinks(address);
       resultSection.hidden = false;
-      showStatus("アドレスを生成しました。");
+      showStatus("アドレスを生成しました。下のボタンから送信画面を開けます。");
     });
 
     copyButton.addEventListener("click", async function () {
@@ -513,13 +619,31 @@
         await navigator.clipboard.writeText(text);
         showStatus("生成したアドレスをコピーしました。");
       } catch (error) {
-        showStatus("自動コピーできませんでした。結果を長押ししてコピーしてください。", true);
+        // クリップボードAPIが使えない環境向けの代替手段
+        try {
+          const range = document.createRange();
+          range.selectNodeContents(resultValue);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          const ok = document.execCommand("copy");
+          selection.removeAllRanges();
+          if (!ok) {
+            throw new Error("copy failed");
+          }
+          showStatus("生成したアドレスをコピーしました。");
+        } catch (fallbackError) {
+          showStatus("自動コピーできませんでした。結果を長押ししてコピーしてください。", true);
+        }
       }
     });
 
     form.addEventListener("reset", function () {
       resultSection.hidden = true;
       resultValue.textContent = "";
+      gmailLink.href = "#";
+      delete gmailLink.dataset.appUrl;
+      mailtoLink.href = "#";
       showStatus("");
     });
   </script>
