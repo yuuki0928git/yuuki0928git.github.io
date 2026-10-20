@@ -466,6 +466,43 @@
       display: none !important;
     }
 
+    /* ツール間ナビ */
+    .toolnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: -12px 0 22px;
+    }
+
+    .toolnav a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 4px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 13px;
+      text-decoration: none;
+      transition: background .15s;
+    }
+
+    .toolnav a:hover {
+      background: #f4f3ed;
+    }
+
+    .toolnav a:focus-visible {
+      outline: 3px solid rgba(82, 107, 84, .3);
+      outline-offset: 2px;
+    }
+
+    .toolnav a[aria-current="page"] {
+      border-color: rgba(135, 153, 130, .4);
+      background: var(--soft);
+      color: var(--green-dark);
+      font-weight: 600;
+    }
+
     /* モード切り替えタブ */
     .tabs {
       display: flex;
@@ -633,6 +670,12 @@
       <span><span class="dot"></span>Personal tool</span>
       <span>Simple &amp; private</span>
     </div>
+
+    <nav class="toolnav" aria-label="ツール">
+      <a href="../tools/">← Tools</a>
+      <a href="../duckmail/">Duckmail</a>
+      <a href="../roulette/" aria-current="page">Roulette</a>
+    </nav>
 
     <header>
       <div class="decoration" aria-hidden="true"></div>
