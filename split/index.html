@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="theme-color" content="#f7f5ef">
+  <title>Split Personal</title>
+  <meta name="description" content="合計金額と人数から、1人あたりの金額を計算するシンプルな個人用ツール">
+
+  <style>
+    :root {
+      --bg: #f7f5ef;
+      --paper: #fffefa;
+      --ink: #333b33;
+      --muted: #73796f;
+      --green: #879982;
+      --green-dark: #526b54;
+      --line: #e5e4da;
+      --soft: #e8ede3;
+      --error: #a34840;
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    [hidden] { display: none !important; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 36px 18px;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 8%, #e4e9dc 0, #e4e9dc 95px, transparent 96px),
+        radial-gradient(circle at 94% 80%, #eee8dc 0, #eee8dc 125px, transparent 126px),
+        var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+        "Yu Gothic", Meiryo, sans-serif;
+      line-height: 1.7;
+    }
+
+    button, input, textarea, select { font: inherit; }
+
+    .page { width: 100%; max-width: 680px; margin: 0 auto; }
+
+    .topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 30px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-right: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .toolnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: -12px 0 22px;
+    }
+
+    .toolnav a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 4px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 13px;
+      text-decoration: none;
+      transition: background .15s;
+    }
+
+    .toolnav a:hover { background: #f4f3ed; }
+
+    .toolnav a:focus-visible {
+      outline: 3px solid rgba(82, 107, 84, .3);
+      outline-offset: 2px;
+    }
+
+    .toolnav a[aria-current="page"] {
+      border-color: rgba(135, 153, 130, .4);
+      background: var(--soft);
+      color: var(--green-dark);
+      font-weight: 600;
+    }
+
+    header {
+      position: relative;
+      overflow: hidden;
+      padding: 34px 30px 38px;
+      border: 1px solid rgba(120, 135, 112, .15);
+      border-radius: 28px;
+      background: rgba(255, 254, 250, .78);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--green-dark);
+      font-size: 12px;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(34px, 7vw, 48px);
+      font-weight: 400;
+      letter-spacing: -.04em;
+      line-height: 1.15;
+    }
+
+    .intro {
+      position: relative;
+      z-index: 1;
+      max-width: 420px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .decoration {
+      position: absolute;
+      top: -35px;
+      right: -25px;
+      width: 180px;
+      height: 180px;
+      border: 1px solid rgba(135, 153, 130, .45);
+      border-radius: 50%;
+    }
+
+    .decoration::before,
+    .decoration::after {
+      position: absolute;
+      content: "";
+      border: 1px solid rgba(135, 153, 130, .35);
+      border-radius: 50%;
+    }
+
+    .decoration::before { inset: 22px; }
+
+    .decoration::after {
+      inset: 44px;
+      background: rgba(232, 237, 227, .5);
+    }
+
+    main {
+      margin-top: 20px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: 0 12px 35px rgba(56, 62, 48, .04);
+    }
+
+    .section-title {
+      margin: 0 0 6px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 24px;
+      font-weight: 400;
+    }
+
+    .section-description {
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .field { margin-bottom: 19px; }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    input[type="text"], input[type="number"], textarea {
+      display: block;
+      width: 100%;
+      min-height: 49px;
+      padding: 12px 14px;
+      border: 1px solid #dcded4;
+      border-radius: 12px;
+      outline: none;
+      background: #fff;
+      color: var(--ink);
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    textarea { min-height: 104px; resize: vertical; line-height: 1.6; }
+
+    input[type="text"]:focus, input[type="number"]:focus, textarea:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(135, 153, 130, .16);
+    }
+
+    input::placeholder, textarea::placeholder { color: #a5a79e; }
+
+    .hint { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+
+    .num-row { display: flex; align-items: center; gap: 8px; }
+    .unit { flex: none; color: var(--muted); font-size: 13px; }
+
+    .seg { display: flex; flex-wrap: wrap; gap: 8px; }
+    .seg label { display: inline-block; margin: 0; font-weight: 400; cursor: pointer; }
+    .seg input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+    }
+    .seg span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 6px 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 14px;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .seg input:checked + span {
+      border-color: var(--green-dark);
+      background: var(--green-dark);
+      color: #fff;
+    }
+    .seg input:focus-visible + span {
+      outline: 3px solid rgba(82, 107, 84, .3);
+      outline-offset: 2px;
+    }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+
+    button {
+      min-height: 46px;
+      padding: 10px 19px;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: transform .15s, background .15s, opacity .15s;
+    }
+
+    button:active { transform: scale(.98); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+
+    button:focus-visible {
+      outline: 3px solid rgba(82, 107, 84, .3);
+      outline-offset: 3px;
+    }
+
+    .primary { flex: 1; background: var(--green-dark); color: #fff; }
+    .primary:hover:not(:disabled) { background: #405943; }
+
+    .secondary { border-color: var(--line); background: transparent; color: var(--ink); }
+    .secondary:hover:not(:disabled) { background: #f4f3ed; }
+
+    .result {
+      margin-top: 25px;
+      padding: 20px;
+      border: 1px solid #dce4d6;
+      border-radius: 16px;
+      background: #f4f6f0;
+    }
+
+    .result-label {
+      margin: 0 0 10px;
+      color: var(--green-dark);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .08em;
+    }
+
+    .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 10px;
+      font-weight: 400;
+      cursor: pointer;
+    }
+    .check input { width: 18px; height: 18px; accent-color: var(--green-dark); }
+
+    .status { min-height: 24px; margin: 12px 0 0; color: var(--muted); font-size: 13px; }
+    .status.error { color: var(--error); }
+
+    .privacy {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      padding: 16px 18px;
+      border-radius: 15px;
+      background: rgba(232, 237, 227, .68);
+      color: #596456;
+      font-size: 12px;
+    }
+
+    .privacy strong { display: block; margin-bottom: 3px; color: var(--ink); font-size: 13px; }
+
+    footer { padding: 25px 8px 0; color: var(--muted); font-size: 11px; text-align: center; }
+
+    @media (max-width: 480px) {
+      body { padding: 22px 13px; }
+      header { padding: 28px 22px 30px; }
+      main { padding: 22px 18px; }
+      .decoration { top: -50px; right: -70px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      button, input, textarea, .toolnav a, .seg span { transition: none; }
+    }
+
+    .big {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 38px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+    .big small { font-size: 16px; color: var(--muted); }
+    .rows { margin: 16px 0 0; padding: 0; }
+    .rows .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 8px 0;
+      border-top: 1px solid #dce4d6;
+      font-size: 14px;
+    }
+    .rows dt { color: var(--muted); }
+    .rows dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+    #copy-button { width: 100%; margin-top: 16px; }
+    .group-pair { display: flex; gap: 14px; }
+    .group-pair .field { flex: 1; min-width: 0; }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <div class="topline">
+      <span><span class="dot"></span>Personal tool</span>
+      <span>Simple &amp; private</span>
+    </div>
+
+    <nav class="toolnav" aria-label="ツール">
+      <a href="../tools/">← Tools</a>
+      <a href="../duckmail/">Duckmail</a>
+      <a href="../roulette/">Roulette</a>
+      <a href="../split/" aria-current="page">Split</a>
+      <a href="../timer/">Timer</a>
+      <a href="../qr/">QR</a>
+    </nav>
+
+    <header>
+      <div class="decoration" aria-hidden="true"></div>
+      <p class="eyebrow">A little utility</p>
+      <h1>Split<br>Personal.</h1>
+      <p class="intro">
+        合計金額と人数から、1人あたりの金額を計算します。端数の扱いも選べます。
+      </p>
+    </header>
+
+    <main>
+      <h2 class="section-title">Split the bill</h2>
+      <p class="section-description">
+        合計金額と人数を入れると、1人あたりの金額を計算します。
+      </p>
+
+      <form id="form" novalidate>
+        <div class="group-pair">
+          <div class="field">
+            <label for="total">合計金額</label>
+            <div class="num-row">
+              <input id="total" type="number" inputmode="numeric" min="0" max="99999999" step="1" placeholder="12000" autocomplete="off">
+              <span class="unit">円</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="people">人数</label>
+            <div class="num-row">
+              <input id="people" type="number" inputmode="numeric" min="1" max="99" step="1" value="4" autocomplete="off">
+              <span class="unit">人</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label id="mode-label">端数の扱い</label>
+          <div class="seg" role="radiogroup" aria-labelledby="mode-label">
+            <label><input type="radio" name="mode" value="up" checked><span>切り上げ</span></label>
+            <label><input type="radio" name="mode" value="down"><span>切り捨て</span></label>
+            <label><input type="radio" name="mode" value="org"><span>幹事が調整</span></label>
+          </div>
+          <p id="mode-hint" class="hint"></p>
+        </div>
+
+        <div class="field">
+          <label id="unit-label">金額の単位</label>
+          <div class="seg" role="radiogroup" aria-labelledby="unit-label">
+            <label><input type="radio" name="unit" value="1"><span>1円</span></label>
+            <label><input type="radio" name="unit" value="10"><span>10円</span></label>
+            <label><input type="radio" name="unit" value="100" checked><span>100円</span></label>
+          </div>
+        </div>
+      </form>
+
+      <section class="result" aria-live="polite">
+        <p id="result-label" class="result-label">PER PERSON</p>
+        <p id="big" class="big">—</p>
+        <dl id="rows" class="rows"></dl>
+        <button id="copy-button" class="secondary" type="button" disabled>結果をコピー</button>
+      </section>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </main>
+
+    <aside class="privacy">
+      <span aria-hidden="true">●</span>
+      <div>
+        <strong>このページのプライバシーについて</strong>
+        このページには、入力内容を外部へ送信する処理や、入力内容を保存する処理を実装していません。入力した情報は、このページを開いている間、ブラウザ内で処理されます。
+      </div>
+    </aside>
+
+    <footer>
+      Split Personal · A simple tool for personal use
+    </footer>
+  </div>
+
+  <script>
+    "use strict";
+
+    const totalEl = document.getElementById("total");
+    const peopleEl = document.getElementById("people");
+    const bigEl = document.getElementById("big");
+    const rowsEl = document.getElementById("rows");
+    const labelEl = document.getElementById("result-label");
+    const modeHint = document.getElementById("mode-hint");
+    const copyButton = document.getElementById("copy-button");
+    const statusEl = document.getElementById("status");
+
+    const HINTS = {
+      up: "全員が同じ金額。切り上げた分の余りは、幹事の手元に残ります。",
+      down: "全員が同じ金額。切り捨てた分の不足は、幹事が立て替えます。",
+      org: "幹事以外は切り上げた金額。幹事は残りを払うので、ぴったり合います。"
+    };
+
+    let lastText = "";
+
+    function fmt(n) { return n.toLocaleString("ja-JP"); }
+
+    function readInt(el, min, max) {
+      if (el.value === "") return null;
+      const v = Number(el.value);
+      if (!Number.isInteger(v) || v < min || v > max) return null;
+      return v;
+    }
+
+    function selected(name) {
+      return document.querySelector('input[name="' + name + '"]:checked').value;
+    }
+
+    function ceilDiv(a, b) { return Math.floor((a + b - 1) / b); }
+
+    function showStatus(message, isError) {
+      statusEl.textContent = message;
+      statusEl.classList.toggle("error", Boolean(isError));
+    }
+
+    function setRows(items) {
+      rowsEl.innerHTML = "";
+      items.forEach(function (item) {
+        const wrap = document.createElement("div");
+        wrap.className = "row";
+        const dt = document.createElement("dt");
+        dt.textContent = item[0];
+        const dd = document.createElement("dd");
+        dd.textContent = item[1];
+        wrap.appendChild(dt);
+        wrap.appendChild(dd);
+        rowsEl.appendChild(wrap);
+      });
+    }
+
+    function clearResult() {
+      bigEl.textContent = "—";
+      labelEl.textContent = "PER PERSON";
+      rowsEl.innerHTML = "";
+      copyButton.disabled = true;
+      lastText = "";
+    }
+
+    function update() {
+      const mode = selected("mode");
+      const unit = Number(selected("unit"));
+      modeHint.textContent = HINTS[mode];
+      showStatus("", false);
+
+      const total = readInt(totalEl, 0, 99999999);
+      const n = readInt(peopleEl, 1, 99);
+
+      if (total === null || n === null) {
+        clearResult();
+        if (totalEl.value !== "" || peopleEl.value === "") {
+          if (totalEl.value !== "" && total === null) showStatus("合計金額は 0〜99,999,999 の整数で入力してください。", true);
+          else if (peopleEl.value === "" || n === null) showStatus("人数は 1〜99 の整数で入力してください。", true);
+        }
+        return;
+      }
+
+      const step = n * unit;
+      const lines = [];
+      let items;
+
+      if (mode === "up") {
+        const per = ceilDiv(total, step) * unit;
+        const collected = per * n;
+        const diff = collected - total;
+        labelEl.textContent = "PER PERSON";
+        bigEl.innerHTML = "";
+        bigEl.append(fmt(per) + " ", Object.assign(document.createElement("small"), { textContent: "円 / 人" }));
+        items = [
+          ["集金合計（" + fmt(per) + "円 × " + n + "人）", fmt(collected) + "円"],
+          ["合計金額", fmt(total) + "円"],
+          ["余り", diff === 0 ? "なし（ちょうど）" : fmt(diff) + "円（幹事の手元）"]
+        ];
+        lines.push("1人 " + fmt(per) + "円 × " + n + "人 = " + fmt(collected) + "円（合計 " + fmt(total) + "円）");
+        lines.push(diff === 0 ? "余りなし" : "余り " + fmt(diff) + "円");
+      } else if (mode === "down") {
+        const per = Math.floor(total / step) * unit;
+        const collected = per * n;
+        const diff = total - collected;
+        labelEl.textContent = "PER PERSON";
+        bigEl.innerHTML = "";
+        bigEl.append(fmt(per) + " ", Object.assign(document.createElement("small"), { textContent: "円 / 人" }));
+        items = [
+          ["集金合計（" + fmt(per) + "円 × " + n + "人）", fmt(collected) + "円"],
+          ["合計金額", fmt(total) + "円"],
+          ["不足", diff === 0 ? "なし（ちょうど）" : fmt(diff) + "円（幹事が立て替え）"]
+        ];
+        lines.push("1人 " + fmt(per) + "円 × " + n + "人 = " + fmt(collected) + "円（合計 " + fmt(total) + "円）");
+        lines.push(diff === 0 ? "不足なし" : "不足 " + fmt(diff) + "円は幹事が負担");
+      } else {
+        const per = ceilDiv(total, step) * unit;
+        const organizer = total - per * (n - 1);
+        if (organizer < 0) {
+          clearResult();
+          showStatus("幹事の支払いがマイナスになります。金額の単位を小さくしてください。", true);
+          return;
+        }
+        labelEl.textContent = "幹事以外 / PER PERSON";
+        bigEl.innerHTML = "";
+        bigEl.append(fmt(per) + " ", Object.assign(document.createElement("small"), { textContent: "円 / 人" }));
+        items = [
+          ["幹事以外（" + fmt(per) + "円 × " + (n - 1) + "人）", fmt(per * (n - 1)) + "円"],
+          ["幹事の支払い", fmt(organizer) + "円"],
+          ["合計金額", fmt(total) + "円"]
+        ];
+        lines.push("幹事以外 1人 " + fmt(per) + "円 × " + (n - 1) + "人");
+        lines.push("幹事 " + fmt(organizer) + "円（合計 " + fmt(total) + "円）");
+      }
+
+      setRows(items);
+      lastText = lines.join("\n");
+      copyButton.disabled = false;
+    }
+
+    document.getElementById("form").addEventListener("input", update);
+    document.getElementById("form").addEventListener("submit", function (e) { e.preventDefault(); });
+
+    copyButton.addEventListener("click", async function () {
+      if (!lastText) return;
+      try {
+        await navigator.clipboard.writeText(lastText);
+        showStatus("結果をコピーしました。", false);
+      } catch (error) {
+        showStatus("自動コピーできませんでした。結果を長押ししてコピーしてください。", true);
+      }
+    });
+
+    update();
+  </script>
+</body>
+</html>

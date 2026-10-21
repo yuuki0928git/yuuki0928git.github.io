@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="theme-color" content="#f7f5ef">
+  <title>Timer Personal</title>
+  <meta name="description" content="勉強と休憩を繰り返すポモドーロ形式のシンプルな個人用タイマー">
+
+  <style>
+    :root {
+      --bg: #f7f5ef;
+      --paper: #fffefa;
+      --ink: #333b33;
+      --muted: #73796f;
+      --green: #879982;
+      --green-dark: #526b54;
+      --line: #e5e4da;
+      --soft: #e8ede3;
+      --error: #a34840;
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    [hidden] { display: none !important; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 36px 18px;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 8%, #e4e9dc 0, #e4e9dc 95px, transparent 96px),
+        radial-gradient(circle at 94% 80%, #eee8dc 0, #eee8dc 125px, transparent 126px),
+        var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+        "Yu Gothic", Meiryo, sans-serif;
+      line-height: 1.7;
+    }
+
+    button, input, textarea, select { font: inherit; }
+
+    .page { width: 100%; max-width: 680px; margin: 0 auto; }
+
+    .topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 30px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-right: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .toolnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: -12px 0 22px;
+    }
+
+    .toolnav a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 4px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 13px;
+      text-decoration: none;
+      transition: background .15s;
+    }
+
+    .toolnav a:hover { background: #f4f3ed; }
+
+    .toolnav a:focus-visible {
+      outline: 3px solid rgba(82, 107, 84, .3);
+      outline-offset: 2px;
+    }
+
+    .toolnav a[aria-current="page"] {
+      border-color: rgba(135, 153, 130, .4);
+      background: var(--soft);
+      color: var(--green-dark);
+      font-weight: 600;
+    }
+
+    header {
+      position: relative;
+      overflow: hidden;
+      padding: 34px 30px 38px;
+      border: 1px solid rgba(120, 135, 112, .15);
+      border-radius: 28px;
+      background: rgba(255, 254, 250, .78);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--green-dark);
+      font-size: 12px;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(34px, 7vw, 48px);
+      font-weight: 400;
+      letter-spacing: -.04em;
+      line-height: 1.15;
+    }
+
+    .intro {
+      position: relative;
+      z-index: 1;
+      max-width: 420px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .decoration {
+      position: absolute;
+      top: -35px;
+      right: -25px;
+      width: 180px;
+      height: 180px;
+      border: 1px solid rgba(135, 153, 130, .45);
+      border-radius: 50%;
+    }
+
+    .decoration::before,
+    .decoration::after {
+      position: absolute;
+      content: "";
+      border: 1px solid rgba(135, 153, 130, .35);
+      border-radius: 50%;
+    }
+
+    .decoration::before { inset: 22px; }
+
+    .decoration::after {
+      inset: 44px;
+      background: rgba(232, 237, 227, .5);
+    }
+
+    main {
+      margin-top: 20px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: 0 12px 35px rgba(56, 62, 48, .04);
+    }
+
+    .section-title {
+      margin: 0 0 6px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 24px;
+      font-weight: 400;
+    }
+
+    .section-description {
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .field { margin-bottom: 19px; }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    input[type="text"], input[type="number"], textarea {
+      display: block;
+      width: 100%;
+      min-height: 49px;
+      padding: 12px 14px;
+      border: 1px solid #dcded4;
+      border-radius: 12px;
+      outline: none;
+      background: #fff;
+      color: var(--ink);
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    textarea { min-height: 104px; resize: vertical; line-height: 1.6; }
+
+    input[type="text"]:focus, input[type="number"]:focus, textarea:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(135, 153, 130, .16);
+    }
+
+    input::placeholder, textarea::placeholder { color: #a5a79e; }
+
+    .hint { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+
+    .num-row { display: flex; align-items: center; gap: 8px; }
+    .unit { flex: none; color: var(--muted); font-size: 13px; }
+
+    .seg { display: flex; flex-wrap: wrap; gap: 8px; }
+    .seg label { display: inline-block; margin: 0; font-weight: 400; cursor: pointer; }
+    .seg input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+    }
+    .seg span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 6px 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 14px;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .seg input:checked + span {
+      border-color: var(--green-dark);
+      background: var(--green-dark);
+      color: #fff;
+    }
+    .seg input:focus-visible + span {
+      outline: 3px solid rgba(82, 107, 84, .3);
+      outline-offset: 2px;
+    }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+
+    button {
+      min-height: 46px;
+      padding: 10px 19px;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: transform .15s, background .15s, opacity .15s;
+    }
+
+    button:active { transform: scale(.98); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+
+    button:focus-visible {
+      outline: 3px solid rgba(82, 107, 84, .3);
+      outline-offset: 3px;
+    }
+
+    .primary { flex: 1; background: var(--green-dark); color: #fff; }
+    .primary:hover:not(:disabled) { background: #405943; }
+
+    .secondary { border-color: var(--line); background: transparent; color: var(--ink); }
+    .secondary:hover:not(:disabled) { background: #f4f3ed; }
+
+    .result {
+      margin-top: 25px;
+      padding: 20px;
+      border: 1px solid #dce4d6;
+      border-radius: 16px;
+      background: #f4f6f0;
+    }
+
+    .result-label {
+      margin: 0 0 10px;
+      color: var(--green-dark);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .08em;
+    }
+
+    .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 10px;
+      font-weight: 400;
+      cursor: pointer;
+    }
+    .check input { width: 18px; height: 18px; accent-color: var(--green-dark); }
+
+    .status { min-height: 24px; margin: 12px 0 0; color: var(--muted); font-size: 13px; }
+    .status.error { color: var(--error); }
+
+    .privacy {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      padding: 16px 18px;
+      border-radius: 15px;
+      background: rgba(232, 237, 227, .68);
+      color: #596456;
+      font-size: 12px;
+    }
+
+    .privacy strong { display: block; margin-bottom: 3px; color: var(--ink); font-size: 13px; }
+
+    footer { padding: 25px 8px 0; color: var(--muted); font-size: 11px; text-align: center; }
+
+    @media (max-width: 480px) {
+      body { padding: 22px 13px; }
+      header { padding: 28px 22px 30px; }
+      main { padding: 22px 18px; }
+      .decoration { top: -50px; right: -70px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      button, input, textarea, .toolnav a, .seg span { transition: none; }
+    }
+
+    .phases { display: flex; justify-content: center; gap: 8px; margin: 0 0 14px; }
+    .phases span {
+      padding: 4px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .phases span[aria-current="true"] {
+      border-color: rgba(135, 153, 130, .4);
+      background: var(--soft);
+      color: var(--green-dark);
+      font-weight: 600;
+    }
+    .dial { position: relative; width: min(100%, 280px); aspect-ratio: 1; margin: 0 auto 22px; }
+    .dial svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
+    .ring-bg { fill: none; stroke: var(--soft); stroke-width: 10; }
+    .ring {
+      fill: none;
+      stroke: var(--green-dark);
+      stroke-width: 10;
+      stroke-linecap: round;
+      stroke-dasharray: 553;
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset .25s linear, stroke .3s;
+    }
+    .dial[data-phase="break"] .ring { stroke: var(--green); }
+    .dial[data-phase="long"] .ring { stroke: #b8a77f; }
+    .dial-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .time {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(46px, 16vw, 64px);
+      line-height: 1;
+      letter-spacing: -.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .set-label { margin-top: 8px; color: var(--muted); font-size: 12px; letter-spacing: .08em; }
+    .timer-actions { margin-top: 0; }
+    .stats { display: flex; gap: 10px; margin-top: 22px; }
+    .stat {
+      flex: 1;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+    .stat b { display: block; font-family: Georgia, "Times New Roman", serif; font-size: 22px; font-weight: 400; }
+    .stat span { color: var(--muted); font-size: 12px; }
+    details { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 14px; }
+    summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+    summary:focus-visible { outline: 3px solid rgba(82, 107, 84, .3); outline-offset: 3px; border-radius: 6px; }
+    .settings { margin-top: 16px; }
+    .settings-row { display: flex; gap: 12px; }
+    .settings-row .field { flex: 1; min-width: 0; }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <div class="topline">
+      <span><span class="dot"></span>Personal tool</span>
+      <span>Simple &amp; private</span>
+    </div>
+
+    <nav class="toolnav" aria-label="ツール">
+      <a href="../tools/">← Tools</a>
+      <a href="../duckmail/">Duckmail</a>
+      <a href="../roulette/">Roulette</a>
+      <a href="../split/">Split</a>
+      <a href="../timer/" aria-current="page">Timer</a>
+      <a href="../qr/">QR</a>
+    </nav>
+
+    <header>
+      <div class="decoration" aria-hidden="true"></div>
+      <p class="eyebrow">A little utility</p>
+      <h1>Timer<br>Personal.</h1>
+      <p class="intro">
+        勉強と休憩を交互に繰り返す、ポモドーロ形式の学習タイマーです。
+      </p>
+    </header>
+
+    <main>
+      <h2 class="section-title">Focus timer</h2>
+      <p class="section-description">
+        勉強と休憩を交互に繰り返す、ポモドーロ形式のタイマーです。
+      </p>
+
+      <div class="phases" aria-hidden="true">
+        <span id="tab-study" aria-current="true">勉強</span>
+        <span id="tab-break">休憩</span>
+        <span id="tab-long">長休憩</span>
+      </div>
+
+      <div id="dial" class="dial" data-phase="study">
+        <svg viewBox="0 0 200 200" aria-hidden="true">
+          <circle class="ring-bg" cx="100" cy="100" r="88"></circle>
+          <circle id="ring" class="ring" cx="100" cy="100" r="88"></circle>
+        </svg>
+        <div class="dial-center">
+          <div id="time" class="time" role="timer">25:00</div>
+          <div id="set-label" class="set-label"></div>
+        </div>
+      </div>
+
+      <div class="actions timer-actions">
+        <button id="start" class="primary" type="button">開始</button>
+        <button id="reset" class="secondary" type="button">リセット</button>
+        <button id="skip" class="secondary" type="button">スキップ</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><b id="stat-sets">0</b><span>完了した勉強セット</span></div>
+        <div class="stat"><b id="stat-min">0分</b><span>勉強した時間</span></div>
+      </div>
+      <p class="hint">記録はこのページを開いている間だけ表示されます。</p>
+
+      <details>
+        <summary>設定</summary>
+        <div class="settings">
+          <div class="settings-row">
+            <div class="field">
+              <label for="min-study">勉強（分）</label>
+              <input id="min-study" type="number" inputmode="numeric" min="1" max="180" value="25">
+            </div>
+            <div class="field">
+              <label for="min-break">休憩（分）</label>
+              <input id="min-break" type="number" inputmode="numeric" min="1" max="60" value="5">
+            </div>
+            <div class="field">
+              <label for="min-long">長休憩（分）</label>
+              <input id="min-long" type="number" inputmode="numeric" min="1" max="120" value="15">
+            </div>
+          </div>
+          <label class="check"><input id="opt-auto" type="checkbox" checked>終わったら自動で次に進む</label><br>
+          <label class="check"><input id="opt-sound" type="checkbox" checked>終わったら音で知らせる</label>
+          <p class="hint">長休憩は、勉強を4セット終えるごとに入ります。実行中の変更は、次の区間から反映されます。</p>
+        </div>
+      </details>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </main>
+
+    <aside class="privacy">
+      <span aria-hidden="true">●</span>
+      <div>
+        <strong>このページのプライバシーについて</strong>
+        このページには、入力内容を外部へ送信する処理や、入力内容を保存する処理を実装していません。入力した情報は、このページを開いている間、ブラウザ内で処理されます。
+      </div>
+    </aside>
+
+    <footer>
+      Timer Personal · A simple tool for personal use
+    </footer>
+  </div>
+
+  <script>
+    "use strict";
+
+    const CIRC = 553;
+    const LABELS = { study: "勉強", break: "休憩", long: "長休憩" };
+    const LIMITS = { study: [1, 180], break: [1, 60], long: [1, 120] };
+
+    const inputs = {
+      study: document.getElementById("min-study"),
+      break: document.getElementById("min-break"),
+      long: document.getElementById("min-long")
+    };
+    const tabs = {
+      study: document.getElementById("tab-study"),
+      break: document.getElementById("tab-break"),
+      long: document.getElementById("tab-long")
+    };
+    const dial = document.getElementById("dial");
+    const ring = document.getElementById("ring");
+    const timeEl = document.getElementById("time");
+    const setLabel = document.getElementById("set-label");
+    const startButton = document.getElementById("start");
+    const resetButton = document.getElementById("reset");
+    const skipButton = document.getElementById("skip");
+    const statSets = document.getElementById("stat-sets");
+    const statMin = document.getElementById("stat-min");
+    const optAuto = document.getElementById("opt-auto");
+    const optSound = document.getElementById("opt-sound");
+    const statusEl = document.getElementById("status");
+
+    let phase = "study";
+    let sets = 0;
+    let running = false;
+    let started = false;
+    let totalMs = 0;
+    let remaining = 0;
+    let endAt = 0;
+    let last = 0;
+    let studyMs = 0;
+    let tickId = null;
+    let audioCtx = null;
+    let wakeLock = null;
+
+    function durationMs(p) {
+      const lim = LIMITS[p];
+      let v = parseInt(inputs[p].value, 10);
+      if (Number.isNaN(v)) v = p === "study" ? 25 : p === "break" ? 5 : 15;
+      return Math.min(lim[1], Math.max(lim[0], v)) * 60000;
+    }
+
+    function showStatus(message) { statusEl.textContent = message; }
+
+    function pad(n) { return n < 10 ? "0" + n : String(n); }
+
+    function render() {
+      const secs = Math.max(0, Math.ceil(remaining / 1000));
+      const text = pad(Math.floor(secs / 60)) + ":" + pad(secs % 60);
+      timeEl.textContent = text;
+      const ratio = totalMs > 0 ? remaining / totalMs : 0;
+      ring.style.strokeDashoffset = String(CIRC * (1 - Math.max(0, Math.min(1, ratio))));
+      dial.dataset.phase = phase;
+      Object.keys(tabs).forEach(function (k) {
+        tabs[k].setAttribute("aria-current", String(k === phase));
+      });
+      setLabel.textContent = phase === "study"
+        ? "セット " + ((sets % 4) + 1) + " / 4"
+        : (phase === "long" ? "ゆっくり休みましょう" : "ひと休み");
+      startButton.textContent = running ? "一時停止" : (started ? "再開" : "開始");
+      statSets.textContent = String(sets);
+      statMin.textContent = Math.floor(studyMs / 60000) + "分";
+      document.title = running ? text + " " + LABELS[phase] + " · Timer Personal" : "Timer Personal";
+    }
+
+    function enterPhase(p) {
+      phase = p;
+      totalMs = durationMs(p);
+      remaining = totalMs;
+      started = false;
+    }
+
+    function beep() {
+      if (!optSound.checked) return;
+      try {
+        if (!audioCtx) return;
+        const base = audioCtx.currentTime;
+        [0, 0.28, 0.56].forEach(function (offset) {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.value = 880;
+          gain.gain.setValueAtTime(0.0001, base + offset);
+          gain.gain.exponentialRampToValueAtTime(0.25, base + offset + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, base + offset + 0.18);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(base + offset);
+          osc.stop(base + offset + 0.2);
+        });
+      } catch (error) { /* 音が出せない環境では何もしない */ }
+    }
+
+    async function acquireWakeLock() {
+      try {
+        if ("wakeLock" in navigator && !wakeLock) {
+          wakeLock = await navigator.wakeLock.request("screen");
+          wakeLock.addEventListener("release", function () { wakeLock = null; });
+        }
+      } catch (error) { wakeLock = null; }
+    }
+
+    function releaseWakeLock() {
+      try { if (wakeLock) wakeLock.release(); } catch (error) { /* noop */ }
+      wakeLock = null;
+    }
+
+    function stopTicking() {
+      if (tickId !== null) { clearInterval(tickId); tickId = null; }
+    }
+
+    function begin() {
+      try {
+        if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+      } catch (error) { audioCtx = null; }
+      running = true;
+      started = true;
+      const now = Date.now();
+      endAt = now + remaining;
+      last = now;
+      stopTicking();
+      tickId = setInterval(tick, 250);
+      acquireWakeLock();
+      render();
+    }
+
+    function pause() {
+      remaining = Math.max(0, endAt - Date.now());
+      running = false;
+      stopTicking();
+      releaseWakeLock();
+      render();
+    }
+
+    // 区間が最後まで終わったときの次の区間（勉強を4セット終えるごとに長休憩）
+    function advanceAfterComplete() {
+      if (phase === "study") {
+        sets += 1;
+        enterPhase(sets % 4 === 0 ? "long" : "break");
+      } else {
+        enterPhase("study");
+      }
+    }
+
+    function complete() {
+      const wasStudy = phase === "study";
+      beep();
+      try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (error) { /* noop */ }
+      advanceAfterComplete();
+      showStatus(wasStudy
+        ? "勉強が終わりました。" + LABELS[phase] + "に入ります。"
+        : LABELS[phase] + "の時間です。");
+      if (optAuto.checked) {
+        begin();
+      } else {
+        running = false;
+        stopTicking();
+        releaseWakeLock();
+        render();
+      }
+    }
+
+    function tick() {
+      const now = Date.now();
+      if (phase === "study") studyMs += now - last;
+      last = now;
+      remaining = endAt - now;
+      if (remaining <= 0) {
+        remaining = 0;
+        complete();
+        return;
+      }
+      render();
+    }
+
+    startButton.addEventListener("click", function () {
+      showStatus("");
+      if (running) pause(); else begin();
+    });
+
+    resetButton.addEventListener("click", function () {
+      stopTicking();
+      releaseWakeLock();
+      running = false;
+      enterPhase(phase);
+      showStatus("");
+      render();
+    });
+
+    skipButton.addEventListener("click", function () {
+      const wasRunning = running;
+      stopTicking();
+      releaseWakeLock();
+      running = false;
+      if (phase === "study") {
+        enterPhase("break");   // スキップは完了セットに数えない
+      } else {
+        enterPhase("study");
+      }
+      showStatus(LABELS[phase] + "に進みました。");
+      if (wasRunning) begin(); else render();
+    });
+
+    Object.keys(inputs).forEach(function (k) {
+      inputs[k].addEventListener("input", function () {
+        if (!running && !started && k === phase) enterPhase(phase);
+        render();
+      });
+    });
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible" && running) {
+        acquireWakeLock();
+        tick();
+      }
+    });
+
+    enterPhase("study");
+    render();
+  </script>
+</body>
+</html>
