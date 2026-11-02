@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="theme-color" content="#f7f5ef">
-  <title>Timer Personal</title>
+  <title>学習タイマー｜Yuuki Tools</title>
   <meta name="description" content="勉強と休憩を繰り返すポモドーロ形式のシンプルな個人用タイマー">
 
   <style>
@@ -399,23 +399,23 @@
 <body>
   <div class="page">
     <div class="topline">
-      <span><span class="dot"></span>Personal tool</span>
+      <span><span class="dot"></span>Yuuki Tools</span>
       <span>Simple &amp; private</span>
     </div>
 
     <nav class="toolnav" aria-label="ツール">
-      <a href="../tools/">← Tools</a>
-      <a href="../duckmail/">Duckmail</a>
-      <a href="../roulette/">Roulette</a>
-      <a href="../split/">Split</a>
-      <a href="../timer/" aria-current="page">Timer</a>
-      <a href="../qr/">QR</a>
+      <a href="../tools/">← Yuuki Tools</a>
+      <a href="../duckmail/">送信用DUCKアドレス生成</a>
+      <a href="../roulette/">ルーレット・組み分け</a>
+      <a href="../split/">割り勘計算</a>
+      <a href="../timer/" aria-current="page">学習タイマー</a>
+      <a href="../qr/">QRコード作成</a>
     </nav>
 
     <header>
       <div class="decoration" aria-hidden="true"></div>
       <p class="eyebrow">A little utility</p>
-      <h1>Timer<br>Personal.</h1>
+      <h1>学習タイマー</h1>
       <p class="intro">
         勉強と休憩を交互に繰り返す、ポモドーロ形式の学習タイマーです。
       </p>
@@ -491,7 +491,7 @@
     </aside>
 
     <footer>
-      Timer Personal · A simple tool for personal use
+      Yuuki Tools · A simple tool for personal use
     </footer>
   </div>
 
@@ -565,7 +565,7 @@
       startButton.textContent = running ? "一時停止" : (started ? "再開" : "開始");
       statSets.textContent = String(sets);
       statMin.textContent = Math.floor(studyMs / 60000) + "分";
-      document.title = running ? text + " " + LABELS[phase] + " · Timer Personal" : "Timer Personal";
+      document.title = running ? text + " " + LABELS[phase] + " · 学習タイマー｜Yuuki Tools" : "学習タイマー｜Yuuki Tools";
     }
 
     function enterPhase(p) {
