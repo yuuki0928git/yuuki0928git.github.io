@@ -5,7 +5,7 @@ import {
   nextPath,
   safePath,
   version,
-} from "./core.js";
+} from "./core.js?v=20261110-zip3";
 const DATE = /^\d{4}\.\d{2}\.\d{2}$/;
 const MESSAGE = /^(\d{2}:\d{2}:\d{2}) ([^:\n]+): (.*)$/;
 const SWITCH = /^――アカウント切替: (.+) → (.+)――$/;

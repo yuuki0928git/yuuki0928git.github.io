@@ -93,3 +93,11 @@ GitHubへ含めるものはコード・説明書・合成テスト・空の設�
 開発用に `npm ci`、`npm test`、`npx playwright install chromium`、`npx playwright test --project=chromium` を実行します。WebKit検証は依存ライブラリを用意して `npx playwright install --with-deps webkit`、`npx playwright test --project=webkit --project=ipad-webkit` を実行します。`ipad-webkit` はiPad相当の画面・タッチ・モバイル設定によるエミュレーションです。配布済みvendorの更新は明示的に行い、バージョンとライセンスを揃えてください。
 
 検証結果と未確認事項は [VALIDATION.md](VALIDATION.md) に記載しています。
+
+## 読み込みエラー・古い表示が残る場合
+
+画面下部の更新版表示で読み込んでいる版を確認できます。`https://yuuki0928git.github.io/meta-log/?v=20261110-zip3` は今回の更新版用URLです。画面・本体JS・依存JS・CSSのURLに同じ版を付け、前の版のファイルがブラウザに残っていても混ざらないようにしています。
+
+`E_SOURCE_IN_DESTINATION` はMetaエクスポートZIPを追記先欄へ入れた場合、`E_CONFIG_JSON` / `E_CONFIG_VERSION` は設定ファイルの選択・形式、`E_EXISTING_PATH` は重複・不正なパス、`E_INPUT_SIZE` / `E_EXISTING_SIZE` はサイズ上限、`E_EXISTING_READ` は追記先ファイルの読み込み、`E_EXISTING_ZIP` はZIP展開の失敗です。iPadで `E_EXISTING_READ` が出る場合は、Filesでダウンロード済みのファイルを選び直してください。
+
+問い合わせ時は版とエラーコードだけで初期診断できます。本文・会話名・アカウントIDや実ファイルを送る必要はありません。エラー表示へ生の例外文やJSON本文は含めません。今後の静的ファイル更新時は、HTMLと依存モジュールの版付きURLを一緒に更新してください。

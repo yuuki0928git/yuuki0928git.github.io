@@ -1,11 +1,11 @@
-import { group, repair } from "./core.js";
+import { group, repair } from "./core.js?v=20261110-zip3";
 import {
   indexZip,
   readEntry,
   conversationFiles,
   ZIP_LIMITS,
   ZipInputError,
-} from "./zip-reader.js";
+} from "./zip-reader.js?v=20261110-zip3";
 export function threadKey(account, thread) {
   return account
     ? `account:${encodeURIComponent(account)}:${encodeURIComponent(thread)}`
