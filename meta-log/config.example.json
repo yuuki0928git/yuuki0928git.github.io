@@ -1,7 +1,8 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "aliases": {},
   "logs": [],
   "mappings": [],
-  "integrated": []
+  "integrated": [],
+  "accounts": []
 }

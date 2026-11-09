@@ -1,5 +1,7 @@
 import { unzipSync, zipSync } from "./vendor/fflate-0.8.2.js";
-import { group, plan, candidates, safePath, resolvePath } from "./core.js";
+import { plan, candidates, safePath, resolvePath } from "./core.js";
+import { importConversations } from "./importer.js";
+import { ZipInputError } from "./zip-reader.js";
 import { planIntegrated } from "./integrated.js";
 const $ = (id) => document.getElementById(id);
 let entries = new Map(),
@@ -8,6 +10,12 @@ let entries = new Map(),
   plans = [],
   choices = new Map(),
   urls = [];
+let candidatePage = 0;
+let catalog = [],
+  importStats = {},
+  inputErrors = [],
+  controller;
+const accountAssignments = new Map();
 const LIMIT = 256 * 1024 * 1024;
 function say(s) {
   $("status").textContent = s;
@@ -33,10 +41,15 @@ function invalidate() {
   $("confirm").checked = false;
   $("preview").replaceChildren();
   $("integration-settings").replaceChildren();
+  $("candidate-list").replaceChildren();
   $("download").hidden = true;
 }
-for (const id of ["existing", "incoming", "config"])
-  $(id).onchange = invalidate;
+for (const id of ["existing", "incoming", "exports", "config", "json-account"])
+  $(id).onchange = () => {
+    controller?.abort();
+    invalidate();
+    if (id === "exports" || id === "config") drawZipAccounts();
+  };
 function node(tag, text, parent) {
   const el = document.createElement(tag);
   if (text !== undefined) el.textContent = text;
@@ -46,10 +59,27 @@ function node(tag, text, parent) {
 function render() {
   invalidate();
   drawIntegratedSettings();
+  drawCandidates();
   for (const g of groups) {
     const card = node("article", undefined, $("preview"));
     node("strong", g.title || g.id, card);
     node("p", `参加者: ${g.participants.join(" / ")}`, card);
+    node(
+      "p",
+      `入力元: ${g.account || "個別JSON（従来設定）"} / スレッド: ${g.thread || g.id}`,
+      card,
+    );
+    const item = catalog.find((i) => i.id === g.id);
+    if (item?.opened && item.state !== "registered") {
+      const cancel = node("button", "登録せずスキップへ戻す", card);
+      cancel.className = "secondary";
+      cancel.onclick = () => {
+        item.opened = false;
+        groups = groups.filter((x) => x.id !== item.id);
+        choices.delete(item.id);
+        render();
+      };
+    }
     const suggested = candidates(
       g,
       [...entries.keys()].map((path) => ({ path })),
@@ -74,6 +104,8 @@ function render() {
     for (const [v, t] of opts) {
       const o = node("option", t, select);
       o.value = v;
+      if (v === "INTEGRATED_ONLY" && (g.isGroup || g.participants.length !== 2))
+        o.disabled = true;
     }
     const c = choices.get(g.id);
     if (c) select.value = c.target;
@@ -105,14 +137,31 @@ function render() {
         };
     }
     if (target === "INTEGRATED_ONLY")
-      p = {
-        held: false,
-        skipped: true,
-        count: 0,
-        changed: false,
-        normalizations: 0,
-      };
+      p =
+        g.isGroup || g.participants.length !== 2
+          ? {
+              held: true,
+              reason: "グループDMは1対1の完全統合版へ入れられません",
+            }
+          : {
+              held: false,
+              skipped: true,
+              count: 0,
+              changed: false,
+              normalizations: 0,
+            };
     if (g.error) p = { held: true, reason: g.error };
+    if (
+      g.account &&
+      g.thread !== g.id &&
+      (config.integrated || []).some((s) =>
+        (s.triggerThreads || []).includes(g.thread),
+      )
+    )
+      p = {
+        held: true,
+        reason: "連動する完全統合版の入力元アカウントを設定で確認してください",
+      };
     if (!p)
       p = target
         ? plan(g, target, entries.get(target), config)
@@ -142,7 +191,13 @@ function render() {
   for (const spec of config.integrated || []) {
     const triggers = spec.triggerThreads || [];
     const triggerPlans = plans.filter((p) => triggers.includes(p.id));
-    if (!spec.always && !triggerPlans.some((p) => !p.held && p.count > 0))
+    if (
+      !spec.always &&
+      !triggerPlans.some((p) => !p.held && p.count > 0) &&
+      !spec.sources?.some((src) =>
+        groups.some((g) => g.id === src.thread && !g.error),
+      )
+    )
       continue;
     let p = planIntegrated(spec, groups, entries.get(spec.path));
     plans.push(p);
@@ -218,7 +273,7 @@ function render() {
     }
   }
   say(
-    `${groups.length}会話 / 保留 ${plans.filter((p) => p.held).length} / 追記 ${plans.filter((p) => !p.held).reduce((s, p) => s + p.count, 0)}件`,
+    `${groups.length}会話 / 保留 ${plans.filter((p) => p.held).length} / 追記 ${plans.filter((p) => !p.held).reduce((s, p) => s + p.count, 0)}件 / スキップ ${catalog.filter((i) => i.state === "skipped" && !i.opened).length}会話 / メディア等 ${importStats.mediaSkipped || 0}ファイルを未展開`,
   );
   $("generate").disabled = !plans.some((p) => !p.held && !p.skipped);
   $("saveconfig").disabled = false;
@@ -226,26 +281,37 @@ function render() {
 $("analyze").onclick = async () => {
   invalidate();
   $("analyze").disabled = true;
+  controller?.abort();
+  controller = new AbortController();
+  const signal = controller.signal;
+  candidatePage = 0;
   say("端末内で読み込み中…");
   try {
     entries = new Map();
     choices = new Map();
     const existing = [...$("existing").files],
-      incoming = [...$("incoming").files];
-    if (!incoming.length) throw Error("JSONを選択してください");
+      incoming = [...$("incoming").files],
+      exports = [...$("exports").files];
+    if (!incoming.length && !exports.length)
+      throw new ZipInputError(
+        "MetaエクスポートZIPまたは個別JSONを選択してください",
+      );
     if ([...existing, ...incoming].reduce((s, f) => s + f.size, 0) > LIMIT)
       throw Error("合計256MiBを超えています。入力を分けてください");
+    if ($("config").files[0]?.size > 2 * 1024 * 1024)
+      throw new ZipInputError("設定JSONは2MiB以下にしてください");
     config = $("config").files[0]
       ? JSON.parse(await $("config").files[0].text())
       : {
-          schemaVersion: 1,
+          schemaVersion: 2,
+          accounts: [],
           aliases: {},
           logs: [],
           mappings: [],
           integrated: [],
         };
-    if (config.schemaVersion !== 1)
-      throw Error("設定schemaVersionは1が必要です");
+    if (![1, 2].includes(config.schemaVersion))
+      throw new ZipInputError("設定schemaVersionは1または2が必要です");
     let size = 0,
       announcedSize = 0;
     function add(p, b) {
@@ -272,43 +338,51 @@ $("analyze").onclick = async () => {
         for (const [p, v] of Object.entries(z)) add(p, v);
       } else add(f.name, b);
     }
-    const data = [],
-      invalid = [];
-    for (const [i, f] of incoming.entries()) {
-      try {
-        const d = JSON.parse(await f.text());
-        group([d]);
-        data.push(d);
-      } catch {
-        invalid.push({
-          id: "保留入力 " + (i + 1),
-          title: f.name,
-          participants: [],
-          error: "Meta形式・スレッド識別情報を確認できない入力",
-          messages: [],
-        });
-      }
-    }
-    const byId = new Map();
-    for (const d of data) {
-      const id = String(d.thread_path || d.thread_id);
-      if (!byId.has(id)) byId.set(id, []);
-      byId.get(id).push(d);
-    }
-    groups = [...invalid];
-    for (const [id, parts] of byId) {
-      try {
-        groups.push(...group(parts));
-      } catch {
-        groups.push({
-          id,
-          title: id,
-          participants: [],
-          messages: [],
-          error: "分割JSONの参加者または時刻に不一致",
-        });
-      }
-    }
+    const imported = await importConversations({
+      archives: exports.map((file) => ({
+        file,
+        account: accountAssignments.get(file) || "",
+      })),
+      individual: incoming,
+      jsonAccount: $("json-account").value,
+      config,
+      signal,
+      onProgress: (progress) => {
+        if (signal.aborted) throw new DOMException("中止", "AbortError");
+        say(
+          `会話JSONを順次確認中… ${progress.jsonRead}ファイル / ${progress.threads}会話`,
+        );
+      },
+    });
+    if (signal.aborted) return;
+    catalog = imported.catalog;
+    inputErrors = imported.errors;
+    importStats = imported.stats;
+    groups = catalog
+      .filter((i) => i.state !== "skipped")
+      .map(
+        (i) =>
+          i.group || {
+            id: i.id,
+            thread: i.thread,
+            account: i.account,
+            title: i.title,
+            participants: i.participants,
+            messages: [],
+            error: i.reason,
+          },
+      );
+    groups.push(
+      ...inputErrors.map((e) => ({
+        id: e.id,
+        thread: "",
+        account: e.account,
+        title: e.input,
+        participants: [],
+        messages: [],
+        error: e.reason,
+      })),
+    );
     for (const spec of config.integrated || []) {
       spec.path = resolvePath(spec.path, entries) || spec.path;
     }
@@ -336,15 +410,20 @@ $("analyze").onclick = async () => {
     render();
     if ($("skip").checked && plans.some((p) => !p.held && !p.skipped))
       await generate(true);
-  } catch {
+  } catch (e) {
+    if (e.name === "AbortError" || signal.aborted) return;
+    invalidate();
     say(
-      "読み込みに失敗しました。JSON形式・スレッド識別情報・重複パス・サイズ上限を確認してください。データは送信していません。",
+      e instanceof ZipInputError
+        ? e.message
+        : "読み込みに失敗しました。既存ZIP・設定JSONの形式、重複パス、サイズ上限を確認してください。データは送信していません。",
     );
   } finally {
     $("analyze").disabled = false;
   }
 };
 async function generate(skip = false) {
+  const run = controller;
   if (!skip && !$("confirm").checked) {
     say("更新内容の確認チェックが必要です");
     return;
@@ -375,6 +454,7 @@ async function generate(skip = false) {
   }
   say("ZIPを生成中…");
   await new Promise((r) => setTimeout(r, 0));
+  if (run?.signal.aborted || run !== controller) return;
   download(
     zipSync(out, { level: 6 }),
     "kaiwa_latest_only.zip",
@@ -386,6 +466,11 @@ $("generate").onclick = () =>
   generate().catch(() => say("ZIP生成に失敗しました。入力を分けてください。"));
 $("saveconfig").onclick = () => {
   const next = structuredClone(config);
+  next.schemaVersion = 2;
+  next.accounts ||= [];
+  for (const g of groups)
+    if (g.account && !next.accounts.some((a) => a.id === g.account))
+      next.accounts.push({ id: g.account, label: g.account });
   next.mappings = (next.mappings || []).filter(
     (m) =>
       !plans.some(
@@ -393,7 +478,22 @@ $("saveconfig").onclick = () => {
       ),
   );
   for (const p of plans.filter((p) => !p.held && !p.skipped && !p.integrated)) {
-    next.mappings.push({ thread: p.id, path: p.next });
+    const g = groups.find((g) => g.id === p.id);
+    if (g.account)
+      next.mappings = next.mappings.filter(
+        (m) =>
+          !(
+            m.thread === g.thread &&
+            !m.account &&
+            resolvePath(m.path, entries) === p.path
+          ),
+      );
+    next.mappings.push({
+      thread: p.id,
+      path: p.next,
+      account: g.account || "",
+      sourceThread: g.thread || g.id,
+    });
     const previous = next.logs?.find((l) => l.path === p.path) || {};
     next.logs = (next.logs || []).filter((l) => l.path !== p.path);
     next.logs.push({
@@ -411,13 +511,22 @@ $("saveconfig").onclick = () => {
   download(JSON.stringify(next, null, 2), "settings.json", "application/json");
 };
 $("reset").onclick = () => {
+  controller?.abort();
+  catalog = [];
+  inputErrors = [];
+  importStats = {};
+  accountAssignments.clear();
+  $("zip-accounts").replaceChildren();
+  $("account-ids").replaceChildren();
+  $("json-account").value = "";
   for (const u of urls) URL.revokeObjectURL(u);
   urls = [];
   entries.clear();
   groups = [];
   config = {};
   choices.clear();
-  for (const id of ["existing", "incoming", "config"]) $(id).value = "";
+  for (const id of ["existing", "incoming", "exports", "config"])
+    $(id).value = "";
   invalidate();
   say("選択・処理結果を消去しました。");
 };
@@ -465,7 +574,7 @@ function drawIntegratedSettings() {
       const available = new Map([
         ["", "選択してください"],
         ...groups
-          .filter((g) => !g.error)
+          .filter((g) => !g.error && !g.isGroup && g.participants.length === 2)
           .map((g) => [
             g.id,
             `${g.title || g.id} / ${g.participants.join("・")}`,
@@ -582,3 +691,114 @@ $("add-integration").onclick = () => {
   });
   render();
 };
+async function drawZipAccounts() {
+  const root = $("zip-accounts");
+  root.replaceChildren();
+  const selected = new Set([...$("exports").files]);
+  for (const file of accountAssignments.keys())
+    if (!selected.has(file)) accountAssignments.delete(file);
+  for (const [i, file] of [...$("exports").files].entries()) {
+    const wrap = node("label", `${file.name} の入力元アカウント`, root);
+    const input = node("input", undefined, wrap);
+    input.setAttribute("aria-label", `入力元アカウント ${i + 1}`);
+    input.setAttribute("list", "account-ids");
+    input.autocomplete = "off";
+    input.placeholder = "毎回同じ識別名を指定（例: account-A）";
+    input.value = accountAssignments.get(file) || "";
+    input.onchange = () => {
+      accountAssignments.set(file, input.value.trim());
+      controller?.abort();
+      invalidate();
+    };
+  }
+  const list = $("account-ids");
+  list.replaceChildren();
+  const file = $("config").files[0];
+  if (!file || file.size > 2 * 1024 * 1024) return;
+  try {
+    const data = JSON.parse(await file.text());
+    for (const a of data.accounts || []) {
+      if (typeof a.id === "string") {
+        const option = node("option", undefined, list);
+        option.value = a.id;
+        option.label = a.label || a.id;
+      }
+    }
+  } catch {
+    say("設定JSONを読み込めません。形式を確認してください。");
+  }
+}
+function drawCandidates() {
+  const candidates = catalog.filter(
+    (i) =>
+      (i.state === "skipped" && !i.opened) ||
+      (i.state === "held" && !i.readError && !i.opened),
+  );
+  $("candidate-summary").textContent =
+    `未登録・アカウント確認の候補（${candidates.length}会話）`;
+  candidatePage = Math.min(
+    candidatePage,
+    Math.max(0, Math.ceil(candidates.length / 50) - 1),
+  );
+  if (candidates.length > 50) {
+    const controls = node(
+      "p",
+      `${candidates.length}会話中 ${candidatePage * 50 + 1}〜${Math.min(candidates.length, (candidatePage + 1) * 50)}件を表示`,
+      $("candidate-list"),
+    );
+    for (const [step, label] of [
+      [-1, "前の50件"],
+      [1, "次の50件"],
+    ]) {
+      const button = node("button", label, controls);
+      button.className = "secondary";
+      button.disabled =
+        step < 0
+          ? candidatePage === 0
+          : (candidatePage + 1) * 50 >= candidates.length;
+      button.onclick = () => {
+        candidatePage += step;
+        render();
+      };
+    }
+  }
+  for (const item of candidates.slice(
+    candidatePage * 50,
+    (candidatePage + 1) * 50,
+  )) {
+    const card = node("article", undefined, $("candidate-list"));
+    node("strong", item.title || item.thread, card);
+    node("p", `${item.account || "個別JSON"} / ${item.thread}`, card);
+    node(
+      "p",
+      `参加者: ${item.participants.join(" / ")} / ${item.messageCount}件`,
+      card,
+    );
+    if (item.reason) node("p", item.reason, card);
+    const open = node("button", "候補を開く", card);
+    open.className = "secondary";
+    open.onclick = async () => {
+      open.disabled = true;
+      const active = controller;
+      try {
+        const g = await item.load();
+        if (active !== controller || active?.signal.aborted) return;
+        item.opened = true;
+        groups = groups.filter((x) => x.id !== g.id);
+        groups.push(g);
+        choices.delete(g.id);
+        render();
+        say("候補を読み込みました。対応先または新規名を確認してください。");
+      } catch (e) {
+        if (e.name !== "AbortError")
+          say(
+            e instanceof ZipInputError
+              ? e.message
+              : "候補の読み込みに失敗しました",
+          );
+      } finally {
+        open.disabled = false;
+      }
+    };
+  }
+}

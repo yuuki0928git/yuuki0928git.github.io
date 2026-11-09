@@ -196,6 +196,8 @@ export function planIntegrated(spec, groups, bytes) {
       if (found.length > 1) throw Error("統合対象スレッドが一意ではありません");
       if (!found.length) continue;
       const g = found[0];
+      if (g.isGroup || g.participants.length !== 2)
+        throw Error("グループDMは1対1の完全統合版の対象外です");
       if (g.error) throw Error("統合対象JSONの解析に失敗しています");
       received++;
       const rows = integratedRows(g, src);

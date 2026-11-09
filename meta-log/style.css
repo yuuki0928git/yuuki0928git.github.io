@@ -128,3 +128,11 @@ fieldset select {
   margin: 12px 0;
   width: 95%;
 }
+#zip-accounts input {
+  display: block;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+label {
+  overflow-wrap: anywhere;
+}

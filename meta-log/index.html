@@ -15,22 +15,39 @@
       <p class="eyebrow">LOCAL / PRIVATE</p>
       <h1>会話ログを、手元で更新。</h1>
       <p>
-        Messenger・InstagramのJSONから最新版TXTを作成します。選択したデータは端末内だけで処理し、保存・送信しません。
+        Messenger・InstagramのZIP・JSONから最新版TXTを作成します。選択したデータは端末内だけで処理し、保存・送信しません。
       </p>
       <section>
         <h2>1　ファイルを選ぶ</h2>
         <label
-          >既存ZIP・TXT（複数可）<input
+          >既存ログのZIP・TXT（追記先・複数可）<input
             id="existing"
             type="file"
             accept=".zip,.txt"
             multiple /></label
         ><label
+          >MetaエクスポートZIP（新着の入力元・複数可）<input
+            id="exports"
+            type="file"
+            accept=".zip"
+            multiple
+        /></label>
+        <div id="zip-accounts"></div>
+        <datalist id="account-ids"></datalist>
+        <p class="note">
+          入力元ZIPごとに自分側アカウントの識別名を指定してください。毎回同じ識別名を使うと、設定済みの会話だけを更新できます。写真・動画の実ファイルは展開しません。
+        </p>
+        <label
           >エクスポートJSON（分割分もすべて選択）<input
             id="incoming"
             type="file"
             accept=".json"
             multiple /></label
+        ><label
+          >個別JSONの入力元アカウント（省略時は従来設定）<input
+            id="json-account"
+            list="account-ids"
+            autocomplete="off" /></label
         ><label
           >手元の設定JSON（任意）<input id="config" type="file" accept=".json"
         /></label>
@@ -57,6 +74,13 @@
           </button>
         </details>
         <div id="preview"></div>
+        <details id="unregistered">
+          <summary id="candidate-summary">未登録の候補</summary>
+          <p>
+            未登録は自動作成せずスキップします。必要な会話だけ候補を開き、対応先または新規名を確認して登録してください。本文はここに表示しません。
+          </p>
+          <div id="candidate-list"></div>
+        </details>
         <label
           ><input id="partial" type="checkbox" />
           保留分を除いて出力する（保留一覧をZIPに含む）</label
