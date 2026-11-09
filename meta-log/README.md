@@ -86,6 +86,6 @@ GitHubへ含めるものはコード・説明書・合成テスト・空の設�
 
 ## 検証
 
-開発用に `npm ci`、`npm test`、`npx playwright install chromium`、`npx playwright test --project=chromium` を実行します。配布済みvendorの更新は明示的に行い、バージョンとライセンスを揃えてください。
+開発用に `npm ci`、`npm test`、`npx playwright install chromium`、`npx playwright test --project=chromium` を実行します。WebKit検証は依存ライブラリを用意して `npx playwright install --with-deps webkit`、`npx playwright test --project=webkit --project=ipad-webkit` を実行します。`ipad-webkit` はiPad相当の画面・タッチ・モバイル設定によるエミュレーションです。配布済みvendorの更新は明示的に行い、バージョンとライセンスを揃えてください。
 
 検証結果と未確認事項は [VALIDATION.md](VALIDATION.md) に記載しています。

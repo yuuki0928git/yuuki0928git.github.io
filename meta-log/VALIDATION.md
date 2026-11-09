@@ -6,6 +6,8 @@
 
 - Node.js 24：単体テスト12件。
 - Linux Chromium 141 / Playwright 1.56.1：ブラウザテスト5件。820×1180・タッチ有効の画面。
+- Linux WebKit 26.0（Playwright build 2215）：同じブラウザテスト5件がすべて成功。
+- WebKitのiPad（第7世代）エミュレーション：同じ5件がすべて成功。810×1080、倍率2、モバイル表示・タッチ有効、日本語ロケール。実機ではない。
 - UTC→JSTの日付またぎ、同一秒内でミリ秒の異なるメッセージ、末尾の一意照合、失敗・同一ミリ秒の保留、同日の見出し重複防止。
 - 複数行本文と末尾改行、ストーリーURLと本文、リンクなし共有の投稿者あり・なし、写真・動画枚数、音声・通話の原文、スタンプの表記、独立リアクション、既存Reacted正規化件数。
 - ver1.9→ver2.0、正規化のみでの版維持、分割JSON結合、別名による照合。
@@ -26,5 +28,17 @@
 
 - 実データでの直近作業の件数再現（入力未提供）。
 - iPad実機のSafari：Filesの複数選択、ZIPダウンロード、ネイティブ共有・保存、大容量時の動作。
-- Linux WebKit 26は取得したが起動失敗。libgtk-4、libgraphene、libwoff、libharfbuzz-icu、libhyphen、libmanette、libGLESv2が不足。システムパッケージインストーラーも利用不可のためWebKitテストは実行できなかった。Chromiumのタッチ画面テストはiPad実機検証の代替ではない。
+- Linux版WebKitおよびiPadエミュレーションは、iPadOSの実機Safariそのものではない。OSのファイルピッカー、Filesへの保存・共有、メモリ制限やバックグラウンド復帰の検証は実機で行う必要がある。
 - GitHub Pagesへの公開・mainへのマージは未実施。
+
+## WebKitの起動環境を修復した方法
+
+初回は必要な共有ライブラリが不足し、標準のシステムパッケージ導入手段も利用できなかった。追加調査で、Debian公式パッケージを作業領域へ展開して利用する方法で起動に成功した。サイトのコードや配布物へこれらのライブラリを追加する必要はない。
+
+- Debian trixieの公式InReleaseの署名を、環境のDebianアーカイブ鍵で検証。Packages.xzおよび各debのSHA-256も検証。
+- 作業領域へ11パッケージを展開：libgtk-4-1、libgraphene-1.0-0、libwoff1、libharfbuzz-icu0、libhyphen0、libmanette-0.2-0、libgles2、libcairo-script-interpreter2、libhidapi-hidraw0、libglvnd0、liblzo2-2。OSの設定やシステムライブラリは変更していない。
+- `LD_LIBRARY_PATH` で展開先を指定し、作業領域内のWebKit起動ラッパーがその値を引き継ぐよう修正。
+- Playwrightの事前検査はシステムのldconfigキャッシュだけを見る項目があり、作業領域のlibGLESv2を認識しない。この検査を `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1` で省略し、実際のWebKit起動・ページ描画・ファイル処理・ダウンロードが通ることを確認した。ブラウザのセキュリティ機能やサイトのCSPは無効化していない。
+- `playwright test --project=webkit --project=ipad-webkit`：10件成功、15.2秒。既存Chromiumの5件と合わせ、3環境で各5件を確認済み。
+
+通常の開発環境ではPlaywright公式の `npx playwright install --with-deps webkit` で依存を導入できる。システムへの導入権限がない環境では、その環境に応じたライブラリ配置が必要。iPad利用者がこれらをインストールする必要はない。

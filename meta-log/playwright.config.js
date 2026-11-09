@@ -1,4 +1,4 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   testMatch: "browser.spec.js",
@@ -15,5 +15,13 @@ export default defineConfig({
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },
     { name: "webkit", use: { browserName: "webkit" } },
+    {
+      name: "ipad-webkit",
+      use: {
+        ...devices["iPad (gen 7)"],
+        browserName: "webkit",
+        locale: "ja-JP",
+      },
+    },
   ],
 });
