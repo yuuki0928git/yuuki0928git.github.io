@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'"
+    />
+    <title>会話ログ更新</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">LOCAL / PRIVATE</p>
+      <h1>会話ログを、手元で更新。</h1>
+      <p>
+        Messenger・InstagramのJSONから最新版TXTを作成します。選択したデータは端末内だけで処理し、保存・送信しません。
+      </p>
+      <section>
+        <h2>1　ファイルを選ぶ</h2>
+        <label
+          >既存ZIP・TXT（複数可）<input
+            id="existing"
+            type="file"
+            accept=".zip,.txt"
+            multiple /></label
+        ><label
+          >エクスポートJSON（分割分もすべて選択）<input
+            id="incoming"
+            type="file"
+            accept=".json"
+            multiple /></label
+        ><label
+          >手元の設定JSON（任意）<input id="config" type="file" accept=".json"
+        /></label>
+        <p class="note">
+          対応する完全統合版がある場合は、照合後にソース・ラベル・切替の設定を確認してください。設定は端末内だけで扱います。
+        </p>
+        <label
+          ><input id="skip" type="checkbox" />
+          確認を省略して実行（設定で対応先が確定済みの会話のみ）</label
+        ><button id="analyze">照合して確認</button
+        ><button id="reset" class="secondary">選択・メモリを消去</button>
+      </section>
+      <section>
+        <h2>2　更新内容の確認</h2>
+        <p id="status" role="status">まだファイルを読み込んでいません。</p>
+        <details>
+          <summary>完全統合版の連動設定</summary>
+          <p>
+            対象・表示名置換は利用者が確認してください。同じ参加者の別アカウントを自動では混ぜません。
+          </p>
+          <div id="integration-settings"></div>
+          <button id="add-integration" class="secondary" disabled>
+            完全統合版を追加
+          </button>
+        </details>
+        <div id="preview"></div>
+        <label
+          ><input id="partial" type="checkbox" />
+          保留分を除いて出力する（保留一覧をZIPに含む）</label
+        ><label
+          ><input id="confirm" type="checkbox" />
+          対応先・新規名と更新内容を確認しました</label
+        ><button id="generate" disabled>最新版ZIPをダウンロード</button
+        ><button id="saveconfig" class="secondary" disabled>
+          設定JSONを書き出す</button
+        ><a id="download" hidden>ZIPを保存・共有</a>
+      </section>
+      <footer>
+        ファイル・本文・対応表は永続ストレージへ保存しません。終了後はタブを閉じてください。大容量ZIPはメモリ不足になる場合があります。
+      </footer>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
