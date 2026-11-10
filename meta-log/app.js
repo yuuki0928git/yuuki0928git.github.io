@@ -1,8 +1,13 @@
 import { unzipSync, zipSync } from "./vendor/fflate-0.8.2.js";
-import { plan, candidates, safePath, resolvePath } from "./core.js";
-import { importConversations } from "./importer.js";
-import { ZipInputError } from "./zip-reader.js";
-import { planIntegrated } from "./integrated.js";
+import {
+  plan,
+  candidates,
+  safePath,
+  resolvePath,
+} from "./core.js?v=20261110-zip3";
+import { importConversations } from "./importer.js?v=20261110-zip3";
+import { ZipInputError } from "./zip-reader.js?v=20261110-zip3";
+import { planIntegrated } from "./integrated.js?v=20261110-zip3";
 const $ = (id) => document.getElementById(id);
 let entries = new Map(),
   groups = [],
@@ -286,6 +291,7 @@ $("analyze").onclick = async () => {
   const signal = controller.signal;
   candidatePage = 0;
   say("端末内で読み込み中…");
+  let stage = "入力の確認";
   try {
     entries = new Map();
     choices = new Map();
@@ -297,47 +303,102 @@ $("analyze").onclick = async () => {
         "MetaエクスポートZIPまたは個別JSONを選択してください",
       );
     if ([...existing, ...incoming].reduce((s, f) => s + f.size, 0) > LIMIT)
-      throw Error("合計256MiBを超えています。入力を分けてください");
+      throw new ZipInputError(
+        "[E_INPUT_SIZE] 既存ログと個別JSONの合計が256MiBを超えています。大きいMetaエクスポートZIPは『新着の入力元』欄で選択してください。",
+      );
     if ($("config").files[0]?.size > 2 * 1024 * 1024)
       throw new ZipInputError("設定JSONは2MiB以下にしてください");
-    config = $("config").files[0]
-      ? JSON.parse(await $("config").files[0].text())
-      : {
-          schemaVersion: 2,
-          accounts: [],
-          aliases: {},
-          logs: [],
-          mappings: [],
-          integrated: [],
-        };
+    stage = "設定JSONの読み込み";
+    if ($("config").files[0]) {
+      try {
+        config = JSON.parse(await $("config").files[0].text());
+      } catch {
+        throw new ZipInputError(
+          "[E_CONFIG_JSON] 設定JSONを読み込めません。会話のJSONではなく、このツールから書き出したsettings.jsonを選択してください。",
+        );
+      }
+    } else
+      config = {
+        schemaVersion: 2,
+        accounts: [],
+        aliases: {},
+        logs: [],
+        mappings: [],
+        integrated: [],
+      };
+    if (!config || typeof config !== "object" || Array.isArray(config))
+      throw new ZipInputError(
+        "[E_CONFIG_FORMAT] 設定JSONの形式が違います。settings.jsonを選択してください。",
+      );
+    if (
+      ["accounts", "logs", "mappings", "integrated"].some(
+        (k) => config[k] !== undefined && !Array.isArray(config[k]),
+      )
+    )
+      throw new ZipInputError(
+        "[E_CONFIG_FORMAT] 設定JSONの配列形式を確認してください。",
+      );
     if (![1, 2].includes(config.schemaVersion))
-      throw new ZipInputError("設定schemaVersionは1または2が必要です");
+      throw new ZipInputError(
+        "[E_CONFIG_VERSION] 設定JSONのschemaVersionは1または2が必要です。会話のJSONは個別JSON欄で選択してください。",
+      );
     let size = 0,
       announcedSize = 0;
     function add(p, b) {
       if (!safePath(p) || entries.has(p))
-        throw Error("ZIP内の不正なパスまたは重複ファイル");
+        throw new ZipInputError(
+          "[E_EXISTING_PATH] 追記先のZIP/TXTに不正または重複するファイルパスがあります。同じTXTをZIPと個別の両方で選んでいないか確認してください。",
+        );
       size += b.length;
-      if (size > LIMIT) throw Error("展開後256MiBを超えています");
+      if (size > LIMIT)
+        throw new ZipInputError(
+          "[E_EXISTING_SIZE] 追記先ログの展開後サイズが256MiBを超えています。MetaエクスポートZIPは新着欄へ入れてください。",
+        );
       entries.set(p, b);
     }
+    stage = "追記先ログの読み込み";
     for (const f of existing) {
-      const b = new Uint8Array(await f.arrayBuffer());
+      let b;
+      try {
+        b = new Uint8Array(await f.arrayBuffer());
+      } catch {
+        throw new ZipInputError(
+          "[E_EXISTING_READ] 追記先のファイルを読み込めません。iPadの「ファイル」でダウンロード済みになっているか確認し、選び直してください。",
+        );
+      }
       if (/\.zip$/i.test(f.name)) {
         const zipNames = new Set();
-        const z = unzipSync(b, {
-          filter: (file) => {
-            if (!safePath(file.name) || zipNames.has(file.name))
-              throw Error("ZIP内の不正・重複パス");
-            zipNames.add(file.name);
-            announcedSize += file.originalSize;
-            if (announcedSize > LIMIT) throw Error("ZIP展開サイズ上限");
-            return true;
-          },
-        });
+        let z;
+        try {
+          z = unzipSync(b, {
+            filter: (file) => {
+              if (/(^|\/)message_[1-9]\d*\.json$/i.test(file.name))
+                throw new ZipInputError(
+                  "[E_SOURCE_IN_DESTINATION] MetaエクスポートZIPが追記先欄に入っています。『MetaエクスポートZIP（新着の入力元）』欄へ移してください。",
+                );
+              if (!safePath(file.name) || zipNames.has(file.name))
+                throw new ZipInputError(
+                  "[E_EXISTING_PATH] 追記先ZIP内に不正または重複したパスがあります。",
+                );
+              zipNames.add(file.name);
+              announcedSize += file.originalSize;
+              if (announcedSize > LIMIT)
+                throw new ZipInputError(
+                  "[E_EXISTING_SIZE] 追記先ZIPの展開後サイズが256MiBを超えています。MetaエクスポートZIPは新着欄へ入れてください。",
+                );
+              return true;
+            },
+          });
+        } catch (e) {
+          if (e instanceof ZipInputError) throw e;
+          throw new ZipInputError(
+            "[E_EXISTING_ZIP] 追記先ZIPを展開できません。破損・暗号化・未対応の圧縮形式が考えられます。最新版のログZIPを選び直してください。",
+          );
+        }
         for (const [p, v] of Object.entries(z)) add(p, v);
       } else add(f.name, b);
     }
+    stage = "Meta入力の読み込み";
     const imported = await importConversations({
       archives: exports.map((file) => ({
         file,
@@ -407,6 +468,7 @@ $("analyze").onclick = async () => {
       )
         choices.set(g.id, { target: c[0].path });
     }
+    stage = "照合結果の作成";
     render();
     if ($("skip").checked && plans.some((p) => !p.held && !p.skipped))
       await generate(true);
@@ -416,7 +478,7 @@ $("analyze").onclick = async () => {
     say(
       e instanceof ZipInputError
         ? e.message
-        : "読み込みに失敗しました。既存ZIP・設定JSONの形式、重複パス、サイズ上限を確認してください。データは送信していません。",
+        : `[E_UNEXPECTED] ${stage}で失敗しました。表示されている版とこのエラーコードをお知らせください。選択データは送信していません。`,
     );
   } finally {
     $("analyze").disabled = false;

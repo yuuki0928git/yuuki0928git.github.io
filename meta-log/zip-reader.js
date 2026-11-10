@@ -1,5 +1,5 @@
 import { inflateSync } from "./vendor/fflate-0.8.2.js";
-import { safePath } from "./core.js";
+import { safePath } from "./core.js?v=20261110-zip3";
 export class ZipInputError extends Error {}
 export const ZIP_LIMITS = {
   entries: 100000,

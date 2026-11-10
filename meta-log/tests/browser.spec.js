@@ -577,3 +577,78 @@ test("通常版に新着がなくても登録済みの別ソースの新着で�
     "別ソース新着",
   );
 });
+test("古いJSがキャッシュされても版付きの本体・依存モジュールを読み込む", async ({
+  page,
+}) => {
+  const requested = [];
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith(".js") && !url.pathname.includes("/vendor/")) {
+      requested.push(url);
+      if (!url.searchParams.has("v"))
+        return route.fulfill({
+          contentType: "application/javascript",
+          body: "globalThis.__staleScript=true;",
+        });
+    }
+    return route.continue();
+  });
+  await page.goto("/?cached=synthetic");
+  await expect(page.locator("#release")).toContainText("2026.11.10.3");
+  await page
+    .locator("#exports")
+    .setInputFiles(upload("synthetic.zip", enc("placeholder")));
+  await expect(
+    page.getByLabel("入力元アカウント 1", { exact: true }),
+  ).toBeVisible();
+  expect(requested.some((url) => url.pathname.endsWith("/app.js"))).toBe(true);
+  expect(
+    requested.every((url) => url.searchParams.get("v") === "20261110-zip3"),
+  ).toBe(true);
+  expect(await page.evaluate(() => !!globalThis.__staleScript)).toBe(false);
+});
+test("読み込み失敗の原因を設定・入力欄・重複・サイズで区別する", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page
+    .locator("#incoming")
+    .setInputFiles(upload("source.json", enc(fixture)));
+  await page
+    .locator("#config")
+    .setInputFiles(upload("wrong-settings.json", enc("{bad json")));
+  await page.locator("#analyze").click();
+  await expect(page.locator("#status")).toContainText("[E_CONFIG_JSON]");
+  await page.locator("#config").setInputFiles([]);
+  const source = zipSync({
+    "messages/inbox/synthetic/message_1.json": enc(fixture),
+  });
+  await page
+    .locator("#existing")
+    .setInputFiles(upload("export-in-wrong-field.zip", source));
+  await page.locator("#analyze").click();
+  await expect(page.locator("#status")).toContainText(
+    "[E_SOURCE_IN_DESTINATION]",
+  );
+  await page
+    .locator("#existing")
+    .setInputFiles([
+      upload("logs.zip", zipSync({ "same_ver1.0.txt": old })),
+      upload("same_ver1.0.txt", old),
+    ]);
+  await page.locator("#analyze").click();
+  await expect(page.locator("#status")).toContainText("[E_EXISTING_PATH]");
+  await page
+    .locator("#existing")
+    .setInputFiles(upload("broken.zip", enc("not zip")));
+  await page.locator("#analyze").click();
+  await expect(page.locator("#status")).toContainText("[E_EXISTING_ZIP]");
+  await page
+    .locator("#existing")
+    .evaluate((el) =>
+      Object.defineProperty(el.files[0], "size", { value: 300 * 1024 * 1024 }),
+    );
+  await page.locator("#analyze").click();
+  await expect(page.locator("#status")).toContainText("[E_INPUT_SIZE]");
+  expect(await page.locator("body").innerText()).not.toContain("{bad json");
+});
