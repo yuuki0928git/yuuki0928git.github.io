@@ -1,0 +1,24 @@
+{
+  "name": "python-chat-tool",
+  "version": "1.0.0",
+  "description": "",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "start": "python3 -m http.server 4180 --bind 127.0.0.1 --directory web",
+    "test": "./.venv/bin/pytest -q --disable-warnings",
+    "test:browser": "playwright test"
+  },
+  "keywords": [],
+  "author": "",
+  "type": "module",
+  "dependencies": {
+    "pyodide": "0.27.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  },
+  "private": true
+}

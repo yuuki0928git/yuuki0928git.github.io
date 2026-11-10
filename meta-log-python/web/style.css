@@ -1,0 +1,166 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #193a36;
+  background: #f3f5f0;
+  line-height: 1.7;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 1000px;
+  margin: auto;
+  padding: 32px 22px;
+}
+h1 {
+  font-size: clamp(28px, 5vw, 44px);
+  letter-spacing: -0.04em;
+}
+h2 {
+  font-size: 21px;
+}
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: #53766a;
+}
+section {
+  background: white;
+  border: 1px solid #d9e3db;
+  border-radius: 18px;
+  padding: 24px;
+  margin: 24px 0;
+}
+label {
+  display: block;
+  margin: 16px 0;
+}
+input[type="file"] {
+  display: block;
+  max-width: 100%;
+  margin-top: 8px;
+}
+button,
+a#download {
+  display: inline-block;
+  background: #205c4b;
+  color: white;
+  border: 0;
+  border-radius: 9px;
+  padding: 14px 20px;
+  font-size: 16px;
+  min-height: 48px;
+  margin: 8px 8px 8px 0;
+  cursor: pointer;
+}
+button.secondary {
+  background: #e7eee8;
+  color: #234a40;
+}
+button:disabled {
+  opacity: 0.45;
+}
+input,
+select {
+  font: inherit;
+  max-width: 100%;
+  padding: 8px;
+}
+input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  vertical-align: middle;
+}
+article {
+  border-top: 1px solid #d9e3db;
+  padding: 20px 0;
+  overflow-wrap: anywhere;
+}
+dl {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 4px;
+}
+dt {
+  color: #587065;
+}
+dd {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.held {
+  color: #a43a20;
+}
+.note,
+footer {
+  font-size: 14px;
+  color: #606d64;
+}
+[hidden] {
+  display: none !important;
+}
+*:focus-visible {
+  outline: 3px solid #d18c38;
+  outline-offset: 3px;
+}
+fieldset {
+  border: 1px solid #d9e3db;
+  border-radius: 10px;
+  margin: 16px 0;
+  padding: 16px;
+}
+textarea {
+  display: block;
+  width: 95%;
+  min-height: 90px;
+  font: inherit;
+}
+details {
+  margin: 18px 0;
+}
+summary {
+  cursor: pointer;
+  padding: 12px 0;
+}
+fieldset input:not([type="checkbox"]),
+fieldset select {
+  display: block;
+  margin: 12px 0;
+  width: 95%;
+}
+#zip-accounts input {
+  display: block;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+label {
+  overflow-wrap: anywhere;
+}
+small {
+  display: block;
+  color: #607268;
+}
+.tag {
+  font-size: 13px;
+  color: #53766a;
+}
+footer {
+  margin-top: 24px;
+}
+#download {
+  display: inline-block;
+  padding: 14px;
+  background: #205c4b;
+  color: white;
+  border-radius: 9px;
+}
+#download[hidden] {
+  display: none;
+}
+#setup-panel {
+  margin: 20px 0;
+}
+dt,
+dd {
+  overflow-wrap: anywhere;
+}
