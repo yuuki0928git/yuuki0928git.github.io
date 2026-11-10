@@ -1,0 +1,10 @@
+.venv/
+node_modules/
+__pycache__/
+.pytest_cache/
+reference_converter.py
+docs/変換自動化_仕様書.md
+mapping.json
+*.zip
+private/
+test-results/

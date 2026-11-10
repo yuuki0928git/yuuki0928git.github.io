@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src 'none'"
+    />
+    <title>チャット履歴を更新</title>
+    <link rel="stylesheet" href="style.css?v=20261110-py1" />
+  </head>
+  <body>
+    <main>
+      <p class="tag">端末内のPythonで処理</p>
+      <h1>いつもの履歴を、更新。</h1>
+      <p>
+        前回のログと新しいエクスポートを選ぶだけ。チャットは外部へ送りません。
+      </p>
+      <section>
+        <h2>1　ファイルを選ぶ</h2>
+        <label
+          >今までのログ<input
+            id="old"
+            type="file"
+            accept=".zip,.txt"
+            multiple
+          /><small>kaiwa_latest_only.zip、または個別のTXT</small></label
+        ><label
+          >新しいエクスポート<input
+            id="sources"
+            type="file"
+            accept=".zip,.json,.txt"
+            multiple
+          /><small
+            >InstagramのZIP・JSON、LINEのトーク履歴。複数選べます。</small
+          ></label
+        >
+        <details id="setup-panel">
+          <summary>初回だけ：Claudeのファイルを選ぶ</summary>
+          <p>
+            reference_converter.py
+            と仕様書（またはmapping.json）を選びます。次回からは更新ZIPに入っているので、この操作は不要です。
+          </p>
+          <input id="setup" type="file" accept=".py,.md,.json" multiple />
+        </details>
+        <button id="analyze" disabled>更新内容を確認</button
+        ><button id="reset" class="secondary">選択を消去</button>
+      </section>
+      <section>
+        <h2>2　確認して保存</h2>
+        <p id="status" role="status">Pythonを準備しています…</p>
+        <div id="preview"></div>
+        <div id="pending"></div>
+        <label id="partial-wrap" hidden
+          ><input id="partial" type="checkbox" />
+          保留の会話を変更せず、更新できる分だけ保存する</label
+        ><button id="execute" disabled>この内容で更新ZIPを保存</button
+        ><a id="download" hidden>ZIPを保存する</a>
+        <p class="note">
+          処理後は入力の参照と作業用メモリを解放します。保存リンクも一定時間で消去します。
+        </p>
+      </section>
+      <footer>
+        Python版 2026.11.10.1・参照コードを変更せず使用・Pyodide 0.27.7<br />iPad実機の大容量処理は未確認です。写真・動画は展開しません。
+      </footer>
+    </main>
+    <script type="module" src="app.js?v=20261110-py1"></script>
+  </body>
+</html>
