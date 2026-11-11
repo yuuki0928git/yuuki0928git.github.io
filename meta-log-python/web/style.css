@@ -422,3 +422,25 @@ summary::before {
 details[open] > summary::before {
   transform: rotate(45deg);
 }
+
+.toolnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -12px 0 22px;
+}
+.toolnav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--green-dark);
+  background: var(--paper);
+  font-size: 13px;
+  text-decoration: none;
+}
+.toolnav a:hover {
+  background: var(--soft);
+}
