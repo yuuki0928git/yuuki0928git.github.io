@@ -25,7 +25,7 @@ function revoke() {
   $("download").hidden = true;
 }
 function start() {
-  worker = new Worker("./worker.js?v=20261112-utf8", { type: "module" });
+  worker = new Worker("./worker.js?v=20261112-wrap1", { type: "module" });
   worker.onerror = () => {
     status("Pythonの起動に失敗しました。ページを開き直してください。");
     $("analyze").disabled = true;
