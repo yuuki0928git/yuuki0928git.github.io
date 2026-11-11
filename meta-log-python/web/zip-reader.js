@@ -28,15 +28,42 @@ async function slice(blob, start, length) {
   if (b.length !== length) fail("ZIPを最後まで読み込めません");
   return b;
 }
-function text(bytes, flags) {
-  if (!(flags & 0x800) && bytes.some((x) => x > 127))
-    fail("UTF-8でないZIPのファイル名には対応していません");
+function text(bytes, flags, extra = new Uint8Array()) {
+  // Some exporters omit the UTF-8 flag. Validate the bytes themselves.
+  // Info-ZIP Unicode Path (0x7075) is accepted only with a matching raw-name CRC.
+  if (!(flags & 0x800)) {
+    for (let p = 0; p + 4 <= extra.length; ) {
+      const kind = u16(extra, p),
+        size = u16(extra, p + 2);
+      p += 4;
+      if (p + size > extra.length)
+        fail("ZIPのファイル名の拡張情報が破損しています");
+      if (
+        kind === 0x7075 &&
+        size >= 5 &&
+        extra[p] === 1 &&
+        u32(extra, p + 1) === crc32(bytes)
+      ) {
+        try {
+          return new TextDecoder("utf-8", { fatal: true }).decode(
+            extra.subarray(p + 5, p + size),
+          );
+        } catch {
+          fail("ZIPのUnicodeファイル名が不正です");
+        }
+      }
+      p += size;
+    }
+  }
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
-    fail("ZIP内のファイル名が不正です");
+    fail(
+      "ZIPのファイル名の文字コードを確認できません。UTF-8またはUnicodeパス情報が必要です",
+    );
   }
 }
+
 function integer64(bytes, p) {
   if (p + 8 > bytes.length) fail("ZIP64の管理情報が破損しています");
   const n = u32(bytes, p) + u32(bytes, p + 4) * 4294967296;
@@ -104,7 +131,12 @@ export async function indexZip(blob, limits = ZIP_LIMITS) {
       comment = u16(directory, p + 32);
     if (p + 46 + n + extraLength + comment > directory.length)
       fail("ZIPのファイル一覧が途中で切れています");
-    const name = text(directory.subarray(p + 46, p + 46 + n), flags);
+    const rawName = directory.subarray(p + 46, p + 46 + n);
+    const name = text(
+      rawName,
+      flags,
+      directory.subarray(p + 46 + n, p + 46 + n + extraLength),
+    );
     if (!safePath(name) || names.has(name))
       fail("ZIPに不正なパスまたは重複ファイル名があります");
     names.add(name);
@@ -153,6 +185,7 @@ export async function indexZip(blob, limits = ZIP_LIMITS) {
       fail("ZIP内のファイル位置が不正です");
     entries.push({
       name,
+      rawName,
       flags,
       method,
       crc,
@@ -190,8 +223,12 @@ export async function readEntry(blob, entry, limit = ZIP_LIMITS.json) {
     fail("ZIP内のファイルヘッダーが破損しています");
   const n = u16(h, 26),
     extra = u16(h, 28),
-    name = text(await slice(blob, entry.local + 30, n), entry.flags);
-  if (name !== entry.name) fail("ZIP内のファイル名が一覧と一致しません");
+    rawName = await slice(blob, entry.local + 30, n);
+  if (
+    rawName.length !== entry.rawName.length ||
+    rawName.some((b, i) => b !== entry.rawName[i])
+  )
+    fail("ZIP内のファイル名が一覧と一致しません");
   const at = entry.local + 30 + n + extra;
   if (at + entry.compressed > entry.directoryOffset)
     fail("ZIP内の会話JSONの位置が不正です");

@@ -5,7 +5,7 @@ import {
   conversationFiles,
   ZipInputError,
   ZIP_LIMITS,
-} from "./zip-reader.js?v=20261110-py1";
+} from "./zip-reader.js?v=20261112-utf8";
 const SHA = "2d2758ae67bd82879925c66856540a3bb858c315f5d6006f5b17c8bf8d4c34d6";
 const LIMITS = {
   ...ZIP_LIMITS,
