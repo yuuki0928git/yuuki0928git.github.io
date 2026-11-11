@@ -1,3 +1,4 @@
+import { findSetupEntries } from "./zip-setup.js?v=20261112-wrap1";
 import { loadPyodide } from "./vendor/pyodide-0.27.7/pyodide.mjs";
 import {
   indexZip,
@@ -92,14 +93,12 @@ async function inspect(files, names = {}) {
       const entries = await indexZip(file, LIMITS),
         json = conversationFiles(entries),
         logs = entries.filter((e) => /ver\d+\.\d+\.txt$/i.test(e.name));
+      const embedded = findSetupEntries(entries);
       if (json.length && logs.length)
         throw new ZipInputError(
           "元JSONと変換済みTXTが混在したZIPです。ログZIPとMetaエクスポートを分けてください",
         );
-      if (
-        logs.length ||
-        entries.some((e) => e.name === "__converter/reference_converter.py")
-      ) {
+      if (logs.length || embedded.reference) {
         for (const entry of entries) {
           if (!safeName(entry.name))
             throw new ZipInputError("ZIPのファイル名に不正なパスがあります");
@@ -112,9 +111,9 @@ async function inspect(files, names = {}) {
             existing[entry.name] = encode(
               await readEntry(file, entry, 64 * 1024 ** 2),
             );
-          } else if (entry.name === "mapping.json")
+          } else if (entry === embedded.mapping)
             embeddedMapping = text(await readEntry(file, entry, 2 * 1024 ** 2));
-          else if (entry.name === "__converter/reference_converter.py")
+          else if (entry === embedded.reference)
             embeddedReference = await readEntry(file, entry, 64 * 1024);
         }
       } else if (json.length) {
@@ -186,7 +185,7 @@ async function inspect(files, names = {}) {
     setups.find((x) => x.kind === "reference")?.bytes || embeddedReference;
   if (!reference)
     throw new ZipInputError(
-      "初回だけ、Claudeから受け取ったreference_converter.pyと仕様書を「初回セットアップ」で選択してください",
+      "選択したログZIPに変換用コードが見つかりません。前回このサイトで保存したZIPを選ぶか、「初回だけ」の欄でreference_converter.pyと仕様書を選択してください",
     );
   const hash = [
     ...new Uint8Array(await crypto.subtle.digest("SHA-256", reference)),
